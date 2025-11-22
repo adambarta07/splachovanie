@@ -22,6 +22,8 @@
     }
     .small{font-size:0.85rem;color:#666}
     #lastUpdate{font-size:0.85rem;color:#666;margin-top:6px}
+    .filters{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+    .filters select{padding:4px;border-radius:4px;border:1px solid #ccc}
   </style>
 </head>
 <body>
@@ -44,6 +46,33 @@
     </div>
   </div>
 
+  <div class="card filters">
+    <label for="year">Rok:</label>
+    <select id="year"><option value="all">Všetky</option></select>
+
+    <label for="month">Mesiac:</label>
+    <select id="month">
+      <option value="all">Všetky</option>
+      <option value="1">Január</option>
+      <option value="2">Február</option>
+      <option value="3">Marec</option>
+      <option value="4">Apríl</option>
+      <option value="5">Máj</option>
+      <option value="6">Jún</option>
+      <option value="7">Júl</option>
+      <option value="8">August</option>
+      <option value="9">September</option>
+      <option value="10">Október</option>
+      <option value="11">November</option>
+      <option value="12">December</option>
+    </select>
+
+    <label for="week">Týždeň:</label>
+    <select id="week"><option value="all">Všetky</option></select>
+
+    <button id="filterBtn">Filtrovať</button>
+  </div>
+
   <div class="card">
     <canvas id="chart"></canvas>
     <div id="lastUpdate" class="small"></div>
@@ -60,158 +89,165 @@
   </div>
 
 <script>
-/*
-  index.html for "splachovanie" project
-  - Uses public Google Sheet JSON via gviz/tq?tqx=out:json
-  - Expects columns that contain at least: date, time, button (case-insensitive)
-  - Adjust SHEET_ID variable to your sheet id (extracted from the URL you provided)
-*/
-
-const SHEET_ID = "10SkH1lLlO-pF1v_WwDpeD_XJLNLAoFEglbJS7TIZY5A"; // tvoja tabuľka
+const SHEET_ID = "10SkH1lLlO-pF1v_WwDpeD_XJLNLAoFEglbJS7TIZY5A";
 const SHEET_GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
 
-let chart; // Chart.js instance
-
-// Konfigurácia: objem malého/veľkého spláchnutia
+let chart;
 const OBJEM_MALE = 3;
 const OBJEM_VELKE = 6;
+let allEntries = [];
 
-/* --- Utility: parse gviz response --- */
+// --- Utility
 function parseGViz(text){
-  // Response looks like: /*O_o*/\ngoogle.visualization.Query.setResponse({...});
   const jsonText = text.replace(/^[\s\S]*?setResponse\(|\);?\s*$/g, '');
   return JSON.parse(jsonText);
 }
 
-/* --- načítanie dát z Google Sheets --- */
 async function fetchSheet(){
   const resp = await fetch(SHEET_GVIZ_URL);
   const text = await resp.text();
   const gv = parseGViz(text);
   const cols = gv.table.cols.map(c => (c.label||"").toString().toLowerCase());
   const rows = (gv.table.rows || []).map(r => r.c.map(cell => cell && typeof cell.v !== 'undefined' ? cell.v : ""));
-  return {cols, rows, parsed: gv};
+  return {cols, rows};
 }
 
-/* --- mapovanie stĺpcov na indexy (hľadáme date,time,button) --- */
 function mapColumns(cols){
   const map = {};
   cols.forEach((c,i) => {
     if(c.includes('date')) map.date = i;
     if(c.includes('time')) map.time = i;
     if(c.includes('button') || c.includes('type') || c.includes('tlacidlo') || c.includes('typ')) map.button = i;
-    // fallbacks
-    if(!map.date && (c==='a' || c==='col1')) map.date = i;
-    if(!map.time && (c==='b' || c==='col2')) map.time = i;
-    if(!map.button && (c==='c' || c==='col3')) map.button = i;
+    if(!map.date && (c==='a'||c==='col1')) map.date=i;
+    if(!map.time && (c==='b'||c==='col2')) map.time=i;
+    if(!map.button && (c==='c'||c==='col3')) map.button=i;
   });
   return map;
 }
 
-/* --- získať objem podľa typu --- */
 function volumeFor(type){
   if(!type) return 0;
   type = type.toString().toLowerCase();
-  if(type.includes('vel') || type.includes('v') || type.includes('big') || type.includes('male')===false && type.includes('velke')) return OBJEM_VELKE;
-  if(type.includes('mal') || type.includes('m') || type.includes('small')) return OBJEM_MALE;
-  // fallback: check exact words
-  if(type === 'male') return OBJEM_MALE;
-  if(type === 'velke') return OBJEM_VELKE;
+  if(type.includes('vel')) return OBJEM_VELKE;
+  if(type.includes('mal')) return OBJEM_MALE;
   return 0;
 }
 
-/* --- agregácia pre graf (po dátume) --- */
 function aggregateByDate(entries){
-  // entries: [{date,time,type,liters}]
   const agg = {};
   entries.forEach(e=>{
     const d = e.date || 'unknown';
     if(!agg[d]) agg[d] = {male:0,velke:0,total:0};
-    if((e.type||'').toString().toLowerCase().includes('male')) { agg[d].male++; agg[d].total += e.liters; }
-    else { agg[d].velke++; agg[d].total += e.liters; }
+    if((e.type||'').toString().toLowerCase().includes('male')) { agg[d].male++; agg[d].total+=e.liters; }
+    else { agg[d].velke++; agg[d].total+=e.liters; }
   });
-  // return sorted arrays
   const keys = Object.keys(agg).sort((a,b)=>new Date(a)-new Date(b));
   const labels = keys;
   const male = keys.map(k=>agg[k].male);
   const velke = keys.map(k=>agg[k].velke);
-  const total = keys.map(k=>agg[k].total);
-  return {labels,male,velke,total};
+  return {labels,male,velke};
 }
 
-/* --- vykresliť / update graf --- */
 function renderChart(labels, maleData, velkeData){
   const ctx = document.getElementById('chart').getContext('2d');
   if(chart) chart.destroy();
-  chart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [
-        { label: 'Malé', data: maleData, backgroundColor: '#4BC0C0' },
-        { label: 'Veľké', data: velkeData, backgroundColor: '#FF9F40' }
-      ]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { position: 'top' } },
-      scales: { x: { stacked: true }, y: { stacked: true, beginAtZero:true } }
-    }
+  chart = new Chart(ctx,{
+    type:'bar',
+    data:{labels:labels,datasets:[
+      {label:'Malé',data:maleData,backgroundColor:'#4BC0C0'},
+      {label:'Veľké',data:velkeData,backgroundColor:'#FF9F40'}
+    ]},
+    options:{responsive:true,plugins:{legend:{position:'top'}},scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}}
   });
 }
 
-/* --- naplniť tabuľku a počítadlá --- */
 function populateUI(entries){
   const tbody = document.querySelector('#dataTable tbody');
   tbody.innerHTML = '';
-  let countMale = 0, countVelke = 0, litersTotal = 0;
-  // show latest 200 rows (reverse chronological)
+  let countMale=0,countVelke=0,totalLiters=0;
   const latest = entries.slice().reverse().slice(0,200);
   latest.forEach(e=>{
-    const tr = document.createElement('tr');
-    const vol = e.liters || 0;
-    tr.innerHTML = `<td>${e.date||''}</td><td>${e.time||''}</td><td>${e.type||''}</td><td>${vol}</td>`;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${e.date||''}</td><td>${e.time||''}</td><td>${e.type||''}</td><td>${e.liters}</td>`;
     tbody.appendChild(tr);
-    if((e.type||'').toString().toLowerCase().includes('male')) countMale++;
-    else countVelke++;
-    litersTotal += vol;
+    if((e.type||'').toLowerCase().includes('male')) countMale++; else countVelke++;
+    totalLiters += e.liters;
   });
-  // update stats
-  document.getElementById('countMale').textContent = countMale;
-  document.getElementById('countVelke').textContent = countVelke;
-  document.getElementById('totalLiters').textContent = litersTotal + ' L';
+  document.getElementById('countMale').textContent=countMale;
+  document.getElementById('countVelke').textContent=countVelke;
+  document.getElementById('totalLiters').textContent=totalLiters+' L';
 
-  // aggregate by date and draw chart
   const agg = aggregateByDate(entries);
-  renderChart(agg.labels, agg.male, agg.velke);
-
-  const now = new Date();
-  document.getElementById('lastUpdate').textContent = `Aktualizované: ${now.toLocaleString()}`;
+  renderChart(agg.labels,agg.male,agg.velke);
+  document.getElementById('lastUpdate').textContent = `Aktualizované: ${new Date().toLocaleString()}`;
 }
 
-/* --- hlavná funkcia: načítať, parsovať, update UI --- */
+// --- Filtrovanie ---
+function getWeekNumber(d){
+  const date = new Date(d.getTime());
+  date.setHours(0,0,0,0);
+  date.setDate(date.getDate()+4-(date.getDay()||7));
+  const yearStart=new Date(date.getFullYear(),0,1);
+  return Math.ceil((((date - yearStart)/86400000)+1)/7);
+}
+
+function filterEntries(){
+  const yearVal=document.getElementById('year').value;
+  const monthVal=document.getElementById('month').value;
+  const weekVal=document.getElementById('week').value;
+  const filtered=allEntries.filter(e=>{
+    const dt=new Date(e.date);
+    if(yearVal!=='all' && dt.getFullYear()!=Number(yearVal)) return false;
+    if(monthVal!=='all' && dt.getMonth()+1!=Number(monthVal)) return false;
+    if(weekVal!=='all' && getWeekNumber(dt)!=Number(weekVal)) return false;
+    return true;
+  });
+  populateUI(filtered);
+}
+
+function populateYearWeekSelectors(){
+  const yearSel=document.getElementById('year');
+  const weekSel=document.getElementById('week');
+  const years=[...new Set(allEntries.map(e=>new Date(e.date).getFullYear()))].sort();
+  years.forEach(y=>{
+    const opt=document.createElement('option'); opt.value=y; opt.textContent=y; yearSel.appendChild(opt);
+  });
+  yearSel.addEventListener('change',()=>{
+    weekSel.innerHTML='<option value="all">Všetky</option>';
+    const weeks=new Set();
+    allEntries.forEach(e=>{
+      const dt=new Date(e.date);
+      if(dt.getFullYear()==Number(yearSel.value)) weeks.add(getWeekNumber(dt));
+    });
+    [...weeks].sort((a,b)=>a-b).forEach(w=>{
+      const opt=document.createElement('option'); opt.value=w; opt.textContent='Týždeň '+w; weekSel.appendChild(opt);
+    });
+  });
+}
+
+// --- Hlavná funkcia ---
 async function updateAll(){
-  try {
-    const g = await fetchSheet();
-    const colmap = mapColumns(g.cols);
-    const rows = g.rows;
-    const entries = rows.map(r=>{
-      const date = colmap.date !== undefined ? r[colmap.date] : (r[0] || '');
-      const time = colmap.time !== undefined ? r[colmap.time] : (r[1] || '');
-      const type = colmap.button !== undefined ? (r[colmap.button] || '') : (r[2] || '');
-      const liters = volumeFor(type);
-      return {date: date, time: time, type: type, liters: liters};
-    }).filter(e=> (e.type!=='' || e.date!=='')); // drop empty
-    populateUI(entries);
+  try{
+    const g=await fetchSheet();
+    const colmap=mapColumns(g.cols);
+    allEntries=g.rows.map(r=>{
+      const date=colmap.date!==undefined?r[colmap.date]:'';
+      const time=colmap.time!==undefined?r[colmap.time]:'';
+      const type=colmap.button!==undefined?r[colmap.button]:'';
+      return {date,time,type,liters:volumeFor(type)};
+    }).filter(e=>e.date||e.type);
+    populateYearWeekSelectors();
+    populateUI(allEntries);
   } catch(err){
-    console.error("Chyba pri načítaní dát:", err);
-    document.getElementById('lastUpdate').textContent = "Chyba pri načítaní dát (skontroluj, či je sheet verejný).";
+    console.error(err);
+    document.getElementById('lastUpdate').textContent='Chyba pri načítaní dát.';
   }
 }
 
-/* --- autoreload každých 30 sekúnd --- */
+document.getElementById('filterBtn').addEventListener('click',filterEntries);
+
 updateAll();
-setInterval(updateAll, 30000);
+setInterval(updateAll,30000);
 </script>
 </body>
 </html>
