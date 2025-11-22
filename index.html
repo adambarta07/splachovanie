@@ -1,253 +1,274 @@
 <!doctype html>
 <html lang="sk">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Monitor spotreby vody — Splachovanie</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Monitor spotreby vody — Splachovanie</title>
 
-  <!-- Chart.js CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;margin:12px;padding:0;color:#111}
-    header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
-    h1{font-size:1.1rem;margin:0}
-    .card{background:#fff;border:1px solid #e6e6e6;border-radius:8px;padding:12px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,0.03)}
-    .stats{display:flex;gap:12px;flex-wrap:wrap}
-    .stat{flex:1;min-width:140px;padding:8px;border-radius:6px;background:#f8f9fb}
-    table{width:100%;border-collapse:collapse;font-size:0.9rem}
-    th,td{padding:6px 8px;border-bottom:1px solid #eee;text-align:left}
-    @media (max-width:600px){
-      .stats{flex-direction:column}
-    }
-    .small{font-size:0.85rem;color:#666}
-    #lastUpdate{font-size:0.85rem;color:#666;margin-top:6px}
-    .filters{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
-    .filters select{padding:4px;border-radius:4px;border:1px solid #ccc}
-  </style>
+    <style>
+        body {
+            font-family: system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+            margin: 12px;
+            padding: 0;
+            color: #111
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px
+        }
+
+        h1 {
+            font-size: 1.1rem;
+            margin: 0
+        }
+
+        .card {
+            background: #fff;
+            border: 1px solid #e6e6e6;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03)
+        }
+
+        .stats {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap
+        }
+
+        .stat {
+            flex: 1;
+            min-width: 140px;
+            padding: 8px;
+            border-radius: 6px;
+            background: #f8f9fb
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem
+        }
+
+        th, td {
+            padding: 6px 8px;
+            border-bottom: 1px solid #eee;
+            text-align: left
+        }
+
+        @media (max-width:600px) {
+            .stats {
+                flex-direction: column
+            }
+        }
+
+        .small {
+            font-size: 0.85rem;
+            color: #666
+        }
+
+        #lastUpdate {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 6px
+        }
+    </style>
 </head>
 <body>
-  <header>
-    <h1>Splachovanie — live prehľad</h1>
-  </header>
+    <header>
+        <h1>Splachovanie — live prehľad</h1>
+    </header>
 
-  <div class="card stats">
-    <div class="stat">
-      <div class="small">Malé spláchnutia</div>
-      <div id="countMale" style="font-size:1.6rem">0</div>
+    <div class="card stats">
+        <div class="stat">
+            <div class="small">Malé spláchnutia</div>
+            <div id="countMale" style="font-size:1.6rem">0</div>
+        </div>
+        <div class="stat">
+            <div class="small">Veľké spláchnutia</div>
+            <div id="countVelke" style="font-size:1.6rem">0</div>
+        </div>
+        <div class="stat">
+            <div class="small">Celková spotreba</div>
+            <div id="totalLiters" style="font-size:1.6rem">0 L</div>
+        </div>
     </div>
-    <div class="stat">
-      <div class="small">Veľké spláchnutia</div>
-      <div id="countVelke" style="font-size:1.6rem">0</div>
+
+    <div class="card">
+        <canvas id="chart"></canvas>
+        <div id="lastUpdate" class="small"></div>
     </div>
-    <div class="stat">
-      <div class="small">Celková spotreba</div>
-      <div id="totalLiters" style="font-size:1.6rem">0 L</div>
+
+    <div class="card">
+        <h3>Posledné záznamy</h3>
+        <div style="overflow:auto;max-height:360px">
+            <table id="dataTable">
+                <thead><tr><th>Dátum</th><th>Čas</th><th>Typ</th><th>Objem (L)</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
     </div>
-  </div>
 
-  <div class="card filters">
-    <label for="year">Rok:</label>
-    <select id="year"><option value="all">Všetky</option></select>
+    <script>
+        /*
+          index.html for "splachovanie" project
+          - Uses public Google Sheet JSON via gviz/tq?tqx=out:json
+          - Expects columns that contain at least: date, time, button (case-insensitive)
+          - Adjust SHEET_ID variable to your sheet id (extracted from the URL you provided)
+        */
 
-    <label for="month">Mesiac:</label>
-    <select id="month">
-      <option value="all">Všetky</option>
-      <option value="1">Január</option>
-      <option value="2">Február</option>
-      <option value="3">Marec</option>
-      <option value="4">Apríl</option>
-      <option value="5">Máj</option>
-      <option value="6">Jún</option>
-      <option value="7">Júl</option>
-      <option value="8">August</option>
-      <option value="9">September</option>
-      <option value="10">Október</option>
-      <option value="11">November</option>
-      <option value="12">December</option>
-    </select>
+        const SHEET_ID = "10SkH1lLlO-pF1v_WwDpeD_XJLNLAoFEglbJS7TIZY5A"; // tvoja tabuľka
+        const SHEET_GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
 
-    <label for="week">Týždeň:</label>
-    <select id="week"><option value="all">Všetky</option></select>
+        let chart; // Chart.js instance
 
-    <button id="filterBtn">Filtrovať</button>
-  </div>
+        // Konfigurácia: objem malého/veľkého spláchnutia
+        const OBJEM_MALE = 3;
+        const OBJEM_VELKE = 6;
 
-  <div class="card">
-    <canvas id="chart"></canvas>
-    <div id="lastUpdate" class="small"></div>
-  </div>
+        /* --- Utility: parse gviz response --- */
+        function parseGViz(text) {
+            // Response looks like: /*O_o*/\ngoogle.visualization.Query.setResponse({...});
+            const jsonText = text.replace(/^[\s\S]*?setResponse\(|\);?\s*$/g, '');
+            return JSON.parse(jsonText);
+        }
 
-  <div class="card">
-    <h3>Posledné záznamy</h3>
-    <div style="overflow:auto;max-height:360px">
-      <table id="dataTable">
-        <thead><tr><th>Dátum</th><th>Čas</th><th>Typ</th><th>Objem (L)</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </div>
+        /* --- načítanie dát z Google Sheets --- */
+        async function fetchSheet() {
+            const resp = await fetch(SHEET_GVIZ_URL);
+            const text = await resp.text();
+            const gv = parseGViz(text);
+            const cols = gv.table.cols.map(c => (c.label || "").toString().toLowerCase());
+            const rows = (gv.table.rows || []).map(r => r.c.map(cell => cell && typeof cell.v !== 'undefined' ? cell.v : ""));
+            return { cols, rows, parsed: gv };
+        }
 
-<script>
-const SHEET_ID = "10SkH1lLlO-pF1v_WwDpeD_XJLNLAoFEglbJS7TIZY5A";
-const SHEET_GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
+        /* --- mapovanie stĺpcov na indexy (hľadáme date,time,button) --- */
+        function mapColumns(cols) {
+            const map = {};
+            cols.forEach((c, i) => {
+                if (c.includes('date')) map.date = i;
+                if (c.includes('time')) map.time = i;
+                if (c.includes('button') || c.includes('type') || c.includes('tlacidlo') || c.includes('typ')) map.button = i;
+                // fallbacks
+                if (!map.date && (c === 'a' || c === 'col1')) map.date = i;
+                if (!map.time && (c === 'b' || c === 'col2')) map.time = i;
+                if (!map.button && (c === 'c' || c === 'col3')) map.button = i;
+            });
+            return map;
+        }
 
-let chart;
-const OBJEM_MALE = 3;
-const OBJEM_VELKE = 6;
-let allEntries = [];
+        /* --- získať objem podľa typu --- */
+        function volumeFor(type) {
+            if (!type) return 0;
+            type = type.toString().toLowerCase();
+            if (type.includes('vel') || type.includes('v') || type.includes('big') || type.includes('male') === false && type.includes('velke')) return OBJEM_VELKE;
+            if (type.includes('mal') || type.includes('m') || type.includes('small')) return OBJEM_MALE;
+            // fallback: check exact words
+            if (type === 'male') return OBJEM_MALE;
+            if (type === 'velke') return OBJEM_VELKE;
+            return 0;
+        }
 
-// --- Utility
-function parseGViz(text){
-  const jsonText = text.replace(/^[\s\S]*?setResponse\(|\);?\s*$/g, '');
-  return JSON.parse(jsonText);
-}
+        /* --- agregácia pre graf (po dátume) --- */
+        function aggregateByDate(entries) {
+            // entries: [{date,time,type,liters}]
+            const agg = {};
+            entries.forEach(e => {
+                const d = e.date || 'unknown';
+                if (!agg[d]) agg[d] = { male: 0, velke: 0, total: 0 };
+                if ((e.type || '').toString().toLowerCase().includes('male')) { agg[d].male++; agg[d].total += e.liters; }
+                else { agg[d].velke++; agg[d].total += e.liters; }
+            });
+            // return sorted arrays
+            const keys = Object.keys(agg).sort((a, b) => new Date(a) - new Date(b));
+            const labels = keys;
+            const male = keys.map(k => agg[k].male);
+            const velke = keys.map(k => agg[k].velke);
+            const total = keys.map(k => agg[k].total);
+            return { labels, male, velke, total };
+        }
 
-async function fetchSheet(){
-  const resp = await fetch(SHEET_GVIZ_URL);
-  const text = await resp.text();
-  const gv = parseGViz(text);
-  const cols = gv.table.cols.map(c => (c.label||"").toString().toLowerCase());
-  const rows = (gv.table.rows || []).map(r => r.c.map(cell => cell && typeof cell.v !== 'undefined' ? cell.v : ""));
-  return {cols, rows};
-}
+        /* --- vykresliť / update graf --- */
+        function renderChart(labels, maleData, velkeData) {
+            const ctx = document.getElementById('chart').getContext('2d');
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Malé', data: maleData, backgroundColor: '#4BC0C0' },
+                        { label: 'Veľké', data: velkeData, backgroundColor: '#FF9F40' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'top' } },
+                    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+                }
+            });
+        }
 
-function mapColumns(cols){
-  const map = {};
-  cols.forEach((c,i) => {
-    if(c.includes('date')) map.date = i;
-    if(c.includes('time')) map.time = i;
-    if(c.includes('button') || c.includes('type') || c.includes('tlacidlo') || c.includes('typ')) map.button = i;
-    if(!map.date && (c==='a'||c==='col1')) map.date=i;
-    if(!map.time && (c==='b'||c==='col2')) map.time=i;
-    if(!map.button && (c==='c'||c==='col3')) map.button=i;
-  });
-  return map;
-}
+        /* --- naplniť tabuľku a počítadlá --- */
+        function populateUI(entries) {
+            const tbody = document.querySelector('#dataTable tbody');
+            tbody.innerHTML = '';
+            let countMale = 0, countVelke = 0, litersTotal = 0;
+            // show latest 200 rows (reverse chronological)
+            const latest = entries.slice().reverse().slice(0, 200);
+            latest.forEach(e => {
+                const tr = document.createElement('tr');
+                const vol = e.liters || 0;
+                tr.innerHTML = `<td>${e.date || ''}</td><td>${e.time || ''}</td><td>${e.type || ''}</td><td>${vol}</td>`;
+                tbody.appendChild(tr);
+                if ((e.type || '').toString().toLowerCase().includes('male')) countMale++;
+                else countVelke++;
+                litersTotal += vol;
+            });
+            // update stats
+            document.getElementById('countMale').textContent = countMale;
+            document.getElementById('countVelke').textContent = countVelke;
+            document.getElementById('totalLiters').textContent = litersTotal + ' L';
 
-function volumeFor(type){
-  if(!type) return 0;
-  type = type.toString().toLowerCase();
-  if(type.includes('vel')) return OBJEM_VELKE;
-  if(type.includes('mal')) return OBJEM_MALE;
-  return 0;
-}
+            // aggregate by date and draw chart
+            const agg = aggregateByDate(entries);
+            renderChart(agg.labels, agg.male, agg.velke);
 
-function aggregateByDate(entries){
-  const agg = {};
-  entries.forEach(e=>{
-    const d = e.date || 'unknown';
-    if(!agg[d]) agg[d] = {male:0,velke:0,total:0};
-    if((e.type||'').toString().toLowerCase().includes('male')) { agg[d].male++; agg[d].total+=e.liters; }
-    else { agg[d].velke++; agg[d].total+=e.liters; }
-  });
-  const keys = Object.keys(agg).sort((a,b)=>new Date(a)-new Date(b));
-  const labels = keys;
-  const male = keys.map(k=>agg[k].male);
-  const velke = keys.map(k=>agg[k].velke);
-  return {labels,male,velke};
-}
+            const now = new Date();
+            document.getElementById('lastUpdate').textContent = `Aktualizované: ${now.toLocaleString()}`;
+        }
 
-function renderChart(labels, maleData, velkeData){
-  const ctx = document.getElementById('chart').getContext('2d');
-  if(chart) chart.destroy();
-  chart = new Chart(ctx,{
-    type:'bar',
-    data:{labels:labels,datasets:[
-      {label:'Malé',data:maleData,backgroundColor:'#4BC0C0'},
-      {label:'Veľké',data:velkeData,backgroundColor:'#FF9F40'}
-    ]},
-    options:{responsive:true,plugins:{legend:{position:'top'}},scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}}
-  });
-}
+        /* --- hlavná funkcia: načítať, parsovať, update UI --- */
+        async function updateAll() {
+            try {
+                const g = await fetchSheet();
+                const colmap = mapColumns(g.cols);
+                const rows = g.rows;
+                const entries = rows.map(r => {
+                    const date = colmap.date !== undefined ? r[colmap.date] : (r[0] || '');
+                    const time = colmap.time !== undefined ? r[colmap.time] : (r[1] || '');
+                    const type = colmap.button !== undefined ? (r[colmap.button] || '') : (r[2] || '');
+                    const liters = volumeFor(type);
+                    return { date: date, time: time, type: type, liters: liters };
+                }).filter(e => (e.type !== '' || e.date !== '')); // drop empty
+                populateUI(entries);
+            } catch (err) {
+                console.error("Chyba pri načítaní dát:", err);
+                document.getElementById('lastUpdate').textContent = "Chyba pri načítaní dát (skontroluj, či je sheet verejný).";
+            }
+        }
 
-function populateUI(entries){
-  const tbody = document.querySelector('#dataTable tbody');
-  tbody.innerHTML = '';
-  let countMale=0,countVelke=0,totalLiters=0;
-  const latest = entries.slice().reverse().slice(0,200);
-  latest.forEach(e=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${e.date||''}</td><td>${e.time||''}</td><td>${e.type||''}</td><td>${e.liters}</td>`;
-    tbody.appendChild(tr);
-    if((e.type||'').toLowerCase().includes('male')) countMale++; else countVelke++;
-    totalLiters += e.liters;
-  });
-  document.getElementById('countMale').textContent=countMale;
-  document.getElementById('countVelke').textContent=countVelke;
-  document.getElementById('totalLiters').textContent=totalLiters+' L';
-
-  const agg = aggregateByDate(entries);
-  renderChart(agg.labels,agg.male,agg.velke);
-  document.getElementById('lastUpdate').textContent = `Aktualizované: ${new Date().toLocaleString()}`;
-}
-
-// --- Filtrovanie ---
-function getWeekNumber(d){
-  const date = new Date(d.getTime());
-  date.setHours(0,0,0,0);
-  date.setDate(date.getDate()+4-(date.getDay()||7));
-  const yearStart=new Date(date.getFullYear(),0,1);
-  return Math.ceil((((date - yearStart)/86400000)+1)/7);
-}
-
-function filterEntries(){
-  const yearVal=document.getElementById('year').value;
-  const monthVal=document.getElementById('month').value;
-  const weekVal=document.getElementById('week').value;
-  const filtered=allEntries.filter(e=>{
-    const dt=new Date(e.date);
-    if(yearVal!=='all' && dt.getFullYear()!=Number(yearVal)) return false;
-    if(monthVal!=='all' && dt.getMonth()+1!=Number(monthVal)) return false;
-    if(weekVal!=='all' && getWeekNumber(dt)!=Number(weekVal)) return false;
-    return true;
-  });
-  populateUI(filtered);
-}
-
-function populateYearWeekSelectors(){
-  const yearSel=document.getElementById('year');
-  const weekSel=document.getElementById('week');
-  const years=[...new Set(allEntries.map(e=>new Date(e.date).getFullYear()))].sort();
-  years.forEach(y=>{
-    const opt=document.createElement('option'); opt.value=y; opt.textContent=y; yearSel.appendChild(opt);
-  });
-  yearSel.addEventListener('change',()=>{
-    weekSel.innerHTML='<option value="all">Všetky</option>';
-    const weeks=new Set();
-    allEntries.forEach(e=>{
-      const dt=new Date(e.date);
-      if(dt.getFullYear()==Number(yearSel.value)) weeks.add(getWeekNumber(dt));
-    });
-    [...weeks].sort((a,b)=>a-b).forEach(w=>{
-      const opt=document.createElement('option'); opt.value=w; opt.textContent='Týždeň '+w; weekSel.appendChild(opt);
-    });
-  });
-}
-
-// --- Hlavná funkcia ---
-async function updateAll(){
-  try{
-    const g=await fetchSheet();
-    const colmap=mapColumns(g.cols);
-    allEntries=g.rows.map(r=>{
-      const date=colmap.date!==undefined?r[colmap.date]:'';
-      const time=colmap.time!==undefined?r[colmap.time]:'';
-      const type=colmap.button!==undefined?r[colmap.button]:'';
-      return {date,time,type,liters:volumeFor(type)};
-    }).filter(e=>e.date||e.type);
-    populateYearWeekSelectors();
-    populateUI(allEntries);
-  } catch(err){
-    console.error(err);
-    document.getElementById('lastUpdate').textContent='Chyba pri načítaní dát.';
-  }
-}
-
-document.getElementById('filterBtn').addEventListener('click',filterEntries);
-
-updateAll();
-setInterval(updateAll,30000);
-</script>
+        /* --- autoreload každých 30 sekúnd --- */
+        updateAll();
+        setInterval(updateAll, 30000);
+    </script>
 </body>
 </html>
