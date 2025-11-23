@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Monitor spotreby vody — Splachovanie</title>
+    <title>Splachovanie</title>
 
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -83,7 +83,7 @@
 </head>
 <body>
     <header>
-        <h1>Splachovanie — live prehľad</h1>
+        <h1>Splachovanie - live prehľad</h1>
     </header>
 
     <div class="card stats">
@@ -117,86 +117,62 @@
     </div>
 
     <script>
-        /*
-          index.html for "splachovanie" project
-          - Uses public Google Sheet JSON via gviz/tq?tqx=out:json
-          - Expects columns that contain at least: date, time, button (case-insensitive)
-          - Adjust SHEET_ID variable to your sheet id (extracted from the URL you provided)
-        */
-
-        const SHEET_ID = "10SkH1lLlO-pF1v_WwDpeD_XJLNLAoFEglbJS7TIZY5A"; // tvoja tabuľka
+        const SHEET_ID = "10SkH1lLlO-pF1v_WwDpeD_XJLNLAoFEglbJS7TIZY5A";
         const SHEET_GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
 
-        let chart; // Chart.js instance
-
-        // Konfigurácia: objem malého/veľkého spláchnutia
         const OBJEM_MALE = 3;
         const OBJEM_VELKE = 6;
 
-        /* --- Utility: parse gviz response --- */
+        let chart;
+
+        /* Parsovanie odpovede z Google Sheets */
         function parseGViz(text) {
-            // Response looks like: /*O_o*/\ngoogle.visualization.Query.setResponse({...});
             const jsonText = text.replace(/^[\s\S]*?setResponse\(|\);?\s*$/g, '');
             return JSON.parse(jsonText);
         }
 
-        /* --- načítanie dát z Google Sheets --- */
+        /* Načíta dáta z Google Sheets */
         async function fetchSheet() {
             const resp = await fetch(SHEET_GVIZ_URL);
             const text = await resp.text();
             const gv = parseGViz(text);
-            const cols = gv.table.cols.map(c => (c.label || "").toString().toLowerCase());
+
             const rows = (gv.table.rows || []).map(r => r.c.map(cell => cell && typeof cell.v !== 'undefined' ? cell.v : ""));
-            return { cols, rows, parsed: gv };
+            return rows;
         }
 
-        /* --- mapovanie stĺpcov na indexy (hľadáme date,time,button) --- */
-        function mapColumns(cols) {
-            const map = {};
-            cols.forEach((c, i) => {
-                if (c.includes('date')) map.date = i;
-                if (c.includes('time')) map.time = i;
-                if (c.includes('button') || c.includes('type') || c.includes('tlacidlo') || c.includes('typ')) map.button = i;
-                // fallbacks
-                if (!map.date && (c === 'a' || c === 'col1')) map.date = i;
-                if (!map.time && (c === 'b' || c === 'col2')) map.time = i;
-                if (!map.button && (c === 'c' || c === 'col3')) map.button = i;
-            });
-            return map;
-        }
-
-        /* --- získať objem podľa typu --- */
+        /* Určí, koľko litrov podľa typu */
         function volumeFor(type) {
             if (!type) return 0;
-            type = type.toString().toLowerCase();
-            if (type.includes('vel') || type.includes('v') || type.includes('big') || type.includes('male') === false && type.includes('velke')) return OBJEM_VELKE;
-            if (type.includes('mal') || type.includes('m') || type.includes('small')) return OBJEM_MALE;
-            // fallback: check exact words
-            if (type === 'male') return OBJEM_MALE;
-            if (type === 'velke') return OBJEM_VELKE;
+            type = type.toLowerCase();
+            if (type.includes("male")) return OBJEM_MALE;
+            if (type.includes("velke")) return OBJEM_VELKE;
             return 0;
         }
 
-        /* --- agregácia pre graf (po dátume) --- */
+        /* Agregácia pre graf podľa dátumu */
         function aggregateByDate(entries) {
-            // entries: [{date,time,type,liters}]
             const agg = {};
             entries.forEach(e => {
-                const d = e.date || 'unknown';
+                const d = e[0] || 'unknown';
+                const type = e[2] || '';
+                const liters = volumeFor(type);
+
                 if (!agg[d]) agg[d] = { male: 0, velke: 0, total: 0 };
-                if ((e.type || '').toString().toLowerCase().includes('male')) { agg[d].male++; agg[d].total += e.liters; }
-                else { agg[d].velke++; agg[d].total += e.liters; }
+                if (type.toLowerCase().includes("male")) { agg[d].male++; agg[d].total += liters; }
+                else if (type.toLowerCase().includes("velke")) { agg[d].velke++; agg[d].total += liters; }
             });
-            // return sorted arrays
+
             const keys = Object.keys(agg).sort((a, b) => new Date(a) - new Date(b));
             const labels = keys;
             const male = keys.map(k => agg[k].male);
             const velke = keys.map(k => agg[k].velke);
             const total = keys.map(k => agg[k].total);
+
             return { labels, male, velke, total };
         }
 
-        /* --- vykresliť / update graf --- */
+        /* Vykreslenie grafu */
         function renderChart(labels, maleData, velkeData) {
             const ctx = document.getElementById('chart').getContext('2d');
             if (chart) chart.destroy();
@@ -217,58 +193,55 @@
             });
         }
 
-        /* --- naplniť tabuľku a počítadlá --- */
-        function populateUI(entries) {
+        /* Naplnenie tabuľky a počítadiel */
+        function populateUI(rows) {
             const tbody = document.querySelector('#dataTable tbody');
             tbody.innerHTML = '';
+
             let countMale = 0, countVelke = 0, litersTotal = 0;
-            // show latest 200 rows (reverse chronological)
-            const latest = entries.slice().reverse().slice(0, 200);
-            latest.forEach(e => {
+
+            const latest = rows.slice().reverse().slice(0, 200);
+            latest.forEach(r => {
+                const date = r[0] || '';
+                const time = r[1] || '';
+                const type = r[2] || '';
+                const liters = volumeFor(type);
+
                 const tr = document.createElement('tr');
-                const vol = e.liters || 0;
-                tr.innerHTML = `<td>${e.date || ''}</td><td>${e.time || ''}</td><td>${e.type || ''}</td><td>${vol}</td>`;
+                tr.innerHTML = `<td>${date}</td><td>${time}</td><td>${type}</td><td>${liters}</td>`;
                 tbody.appendChild(tr);
-                if ((e.type || '').toString().toLowerCase().includes('male')) countMale++;
-                else countVelke++;
-                litersTotal += vol;
+
+                if (type.toLowerCase().includes("male")) countMale++;
+                else if (type.toLowerCase().includes("velke")) countVelke++;
+                litersTotal += liters;
             });
-            // update stats
+
             document.getElementById('countMale').textContent = countMale;
             document.getElementById('countVelke').textContent = countVelke;
             document.getElementById('totalLiters').textContent = litersTotal + ' L';
 
-            // aggregate by date and draw chart
-            const agg = aggregateByDate(entries);
+            const agg = aggregateByDate(rows);
             renderChart(agg.labels, agg.male, agg.velke);
 
             const now = new Date();
             document.getElementById('lastUpdate').textContent = `Aktualizované: ${now.toLocaleString()}`;
         }
 
-        /* --- hlavná funkcia: načítať, parsovať, update UI --- */
+        /* Hlavná funkcia */
         async function updateAll() {
             try {
-                const g = await fetchSheet();
-                const colmap = mapColumns(g.cols);
-                const rows = g.rows;
-                const entries = rows.map(r => {
-                    const date = colmap.date !== undefined ? r[colmap.date] : (r[0] || '');
-                    const time = colmap.time !== undefined ? r[colmap.time] : (r[1] || '');
-                    const type = colmap.button !== undefined ? (r[colmap.button] || '') : (r[2] || '');
-                    const liters = volumeFor(type);
-                    return { date: date, time: time, type: type, liters: liters };
-                }).filter(e => (e.type !== '' || e.date !== '')); // drop empty
-                populateUI(entries);
+                const rows = await fetchSheet();
+                populateUI(rows);
             } catch (err) {
                 console.error("Chyba pri načítaní dát:", err);
                 document.getElementById('lastUpdate').textContent = "Chyba pri načítaní dát (skontroluj, či je sheet verejný).";
             }
         }
 
-        /* --- autoreload každých 30 sekúnd --- */
+        /* Autoreload každých 30 sekúnd */
         updateAll();
         setInterval(updateAll, 30000);
     </script>
 </body>
 </html>
+
