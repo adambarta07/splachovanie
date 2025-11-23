@@ -125,13 +125,11 @@
 
         let chart;
 
-        /* Parsovanie odpovede z Google Sheets */
         function parseGViz(text) {
             const jsonText = text.replace(/^[\s\S]*?setResponse\(|\);?\s*$/g, '');
             return JSON.parse(jsonText);
         }
 
-        /* Načíta dáta z Google Sheets */
         async function fetchSheet() {
             const resp = await fetch(SHEET_GVIZ_URL);
             const text = await resp.text();
@@ -141,26 +139,38 @@
             return rows;
         }
 
-        /* Určí, koľko litrov podľa typu */
+        function normalizeType(type) {
+            if (!type) return '';
+            type = type.toLowerCase().trim();
+            if (type === "male" || type === "malé") return "male";
+            if (type === "velke" || type === "veľké") return "velke";
+            return '';
+        }
+
         function volumeFor(type) {
             if (!type) return 0;
-            type = type.toLowerCase();
-            if (type.includes("male")) return OBJEM_MALE;
-            if (type.includes("velke")) return OBJEM_VELKE;
+            if (type === "male") return OBJEM_MALE;
+            if (type === "velke") return OBJEM_VELKE;
             return 0;
         }
 
-        /* Agregácia pre graf podľa dátumu */
-        function aggregateByDate(entries) {
+        function aggregateByDate(rows) {
             const agg = {};
-            entries.forEach(e => {
-                const d = e[0] || 'unknown';
-                const type = e[2] || '';
+
+            rows.forEach(r => {
+                const date = r[0] || 'unknown';   
+                const type = normalizeType(r[2]); 
                 const liters = volumeFor(type);
 
-                if (!agg[d]) agg[d] = { male: 0, velke: 0, total: 0 };
-                if (type.toLowerCase().includes("male")) { agg[d].male++; agg[d].total += liters; }
-                else if (type.toLowerCase().includes("velke")) { agg[d].velke++; agg[d].total += liters; }
+                if (!agg[date]) agg[date] = { male: 0, velke: 0, total: 0 };
+
+                if (type === "male") { 
+                    agg[date].male++; 
+                    agg[date].total += liters; 
+                } else if (type === "velke") { 
+                    agg[date].velke++; 
+                    agg[date].total += liters; 
+                }
             });
 
             const keys = Object.keys(agg).sort((a, b) => new Date(a) - new Date(b));
@@ -172,7 +182,6 @@
             return { labels, male, velke, total };
         }
 
-        /* Vykreslenie grafu */
         function renderChart(labels, maleData, velkeData) {
             const ctx = document.getElementById('chart').getContext('2d');
             if (chart) chart.destroy();
@@ -193,26 +202,34 @@
             });
         }
 
-        /* Naplnenie tabuľky a počítadiel */
         function populateUI(rows) {
             const tbody = document.querySelector('#dataTable tbody');
             tbody.innerHTML = '';
 
             let countMale = 0, countVelke = 0, litersTotal = 0;
 
+            // Pre tabuľku zobrazíme len posledných 200
             const latest = rows.slice().reverse().slice(0, 200);
             latest.forEach(r => {
                 const date = r[0] || '';
                 const time = r[1] || '';
-                const type = r[2] || '';
+                const typeOriginal = r[2] || '';
+                const type = normalizeType(typeOriginal);
                 const liters = volumeFor(type);
 
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${date}</td><td>${time}</td><td>${type}</td><td>${liters}</td>`;
+                tr.innerHTML = `<td>${date}</td><td>${time}</td><td>${typeOriginal}</td><td>${liters}</td>`;
                 tbody.appendChild(tr);
+            });
 
-                if (type.toLowerCase().includes("male")) countMale++;
-                else if (type.toLowerCase().includes("velke")) countVelke++;
+            // Pre stats spočítame všetky záznamy
+            rows.forEach(r => {
+                const type = normalizeType(r[2]);
+                const liters = volumeFor(type);
+
+                if (type === "male") countMale++;
+                else if (type === "velke") countVelke++;
+
                 litersTotal += liters;
             });
 
@@ -227,7 +244,7 @@
             document.getElementById('lastUpdate').textContent = `Aktualizované: ${now.toLocaleString()}`;
         }
 
-        /* Hlavná funkcia */
+
         async function updateAll() {
             try {
                 const rows = await fetchSheet();
@@ -238,7 +255,6 @@
             }
         }
 
-        /* Autoreload každých 30 sekúnd */
         updateAll();
         setInterval(updateAll, 30000);
     </script>
