@@ -166,6 +166,11 @@
         .loading-val {
             color: var(--color-border) !important;
         }
+
+        td {
+            border-bottom: 1px solid var(--color-border);
+            white-space: nowrap; /* Zabráni zalomeniu dátumu a času */
+        }
     </style>
 </head>
 <body>
@@ -264,16 +269,18 @@
         function parseDateSafe(d) {
             if (!d) return null;
             if (d instanceof Date) return d;
-            if (typeof d === "string") {
-                if (d.startsWith("Date(")) {
-                    const nums = d.match(/\d+/g);
-                    // Mesiac v JS Date je 0-11, gviz to posiela rovnako
-                    if (nums && nums.length >= 3) return new Date(nums[0], nums[1], nums[2]);
+            
+            // Ak ide o špeciálny formát od Google: Date(2024,0,15)
+            if (typeof d === "string" && d.startsWith("Date(")) {
+                const nums = d.match(/\d+/g);
+                if (nums && nums.length >= 3) {
+                    return new Date(nums[0], nums[1], nums[2]);
                 }
-                const isoDate = new Date(d);
-                if (!isNaN(isoDate)) return isoDate;
             }
-            return null;
+            
+            // Skúsime klasický prevod (funguje pre ISO stringy)
+            const testDate = new Date(d);
+            return isNaN(testDate) ? null : testDate;
         }
 
         // Roztriedenie a naplnenie grafu podľa dátumov
