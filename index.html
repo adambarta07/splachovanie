@@ -10,13 +10,14 @@
     <style>
         /* --- Farebná Schéma (Jedna modrá škála) --- */
         :root {
-            --color-blue-dark: #2563eb; /* Tmavšia Modrá (Hlavný akcent) */
-            --color-blue-light: #3b82f6; /* Svetlejšia Modrá (Hover)*/
+            --color-blue-dark: #2563eb; 
+            --color-blue-light: #3b82f6; 
             --color-text-dark: #1f2937;
             --color-text-light: #6b7280;
             --color-bg: #f9fafb;
             --color-card: #ffffff;
             --color-border: #e5e7eb;
+            --color-danger: #ef4444; /* Červená pre priemer */
         }
 
         body { 
@@ -27,7 +28,6 @@
             color: var(--color-text-dark);
         }
         
-        /* Kontajner a hlavička */
         header { 
             display: flex; 
             align-items: center; 
@@ -50,7 +50,6 @@
             font-weight: 600;
         }
 
-        /* Karty */
         .card { 
             background: var(--color-card); 
             border-radius: 8px; 
@@ -60,7 +59,6 @@
             border: 1px solid var(--color-border);
         }
         
-        /* Tlačidlá a Formuláre (Zjednotené modré akcenty) */
         button, input[type="date"] {
             padding: 10px 15px;
             border-radius: 6px;
@@ -72,7 +70,6 @@
             background-color: var(--color-card);
         }
         
-        /* Všetky aktívne/primárne buttony používajú modrú */
         .btn-filter.active, .btn-primary { 
             background: var(--color-blue-dark);
             color: white; 
@@ -84,13 +81,11 @@
             border-color: var(--color-blue-light);
         }
         
-        /* Filtre Rozloženie */
         .filter-row { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between; }
         .date-inputs { display: flex; gap: 15px; align-items: center; }
         .date-inputs label { font-size: 0.9rem; font-weight: 500; color: var(--color-text-light); }
         .quick-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-        /* Štatistiky */
         .stats { 
             display: grid; 
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); 
@@ -101,8 +96,10 @@
             padding: 20px; 
             border-radius: 8px; 
             background: var(--color-card);
-            border-left: 3px solid var(--color-blue-dark); /* Modrý akcent na metrikách */
+            border-left: 3px solid var(--color-blue-dark);
         }
+        .stat.avg { border-left-color: var(--color-danger); } /* Červený okraj pre priemer */
+        
         .stat .label { 
             font-size: 0.85rem; 
             color: var(--color-text-light); 
@@ -115,7 +112,6 @@
             color: var(--color-text-dark);
         }
         
-        /* Tabuľka */
         table { 
             width: 100%; 
             border-collapse: separate; 
@@ -134,12 +130,12 @@
         }
         td {
             border-bottom: 1px solid var(--color-border);
+            white-space: nowrap; 
         }
         tbody tr:hover {
             background-color: #f8fafb;
         }
 
-        /* Responzívny dizajn */
         @media (max-width: 768px) {
             body { padding: 15px; }
             h1 { font-size: 1.5rem; }
@@ -160,16 +156,6 @@
             animation: pulse 1.5s infinite ease-in-out;
             font-weight: 500;
             font-style: italic;
-        }
-
-        /* Štýl pre hodnoty, ktoré sa práve načítavajú */
-        .loading-val {
-            color: var(--color-border) !important;
-        }
-
-        td {
-            border-bottom: 1px solid var(--color-border);
-            white-space: nowrap; /* Zabráni zalomeniu dátumu a času */
         }
     </style>
 </head>
@@ -200,20 +186,24 @@
 
     <div class="stats">
         <div class="stat">
-            <div class="label">Malé spláchnutia (3L)</div>
+            <div class="label">Malé (3L)</div>
             <div id="countMale" class="value">0</div>
         </div>
         <div class="stat">
-            <div class="label">Veľké spláchnutia (6L)</div>
+            <div class="label">Veľké (6L)</div>
             <div id="countVelke" class="value">0</div>
         </div>
         <div class="stat">
-            <div class="label">Celkom spláchnutí</div>
+            <div class="label">Celkom</div>
             <div id="countTotal" class="value">0</div>
         </div>
         <div class="stat">
-            <div class="label">Celková spotreba</div>
+            <div class="label">Spotreba</div>
             <div id="totalLiters" class="value">0 L</div>
+        </div>
+        <div class="stat avg">
+            <div class="label">Priemer / deň</div>
+            <div id="avgLiters" class="value">0 L</div>
         </div>
     </div>
 
@@ -240,7 +230,6 @@
         </div>
     </div>
 
-    
     <script>
         const SHEET_ID = "10SkH1lLlO-pF1v_WwDpeD_XJLNLAoFEglbJS7TIZY5A";
         const SHEET_GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
@@ -255,7 +244,6 @@
             return JSON.parse(jsonText);
         }
 
-        // Jednoduché mapovanie typu
         function normalizeType(type) {
             type = String(type || '').toLowerCase().trim();
             return type.includes("mal") || type === "m" ? "male" : "velke";
@@ -265,14 +253,12 @@
             return type === "male" ? OBJEM_MALE : OBJEM_VELKE;
         }
 
-        // Jednoduché parseDateSafe len pre GViz Date() alebo Date objekt
         function parseDateSafe(d) {
             if (!d) return null;
             if (d instanceof Date) return d;
             if (typeof d === "string") {
                 if (d.startsWith("Date(")) {
                     const nums = d.match(/\d+/g);
-                    // Mesiac v JS Date je 0-11, gviz to posiela rovnako
                     if (nums && nums.length >= 3) return new Date(nums[0], nums[1], nums[2]);
                 }
                 const isoDate = new Date(d);
@@ -281,15 +267,11 @@
             return null;
         }
 
-        // Roztriedenie a naplnenie grafu podľa dátumov
         function aggregateByDate(rows) {
             const agg = {};
-            
-            // 1. Zisti rozsah dátumov z filtrov
             let start = document.getElementById('dateFrom').value ? new Date(document.getElementById('dateFrom').value) : null;
             let end = document.getElementById('dateTo').value ? new Date(document.getElementById('dateTo').value) : null;
 
-            // Ak filtre nie sú nastavené, zober prvý a posledný dátum z dát
             if (!start || !end) {
                 const dates = rows.map(r => parseDateSafe(r[0])).filter(d => d);
                 if (dates.length > 0) {
@@ -298,7 +280,6 @@
                 }
             }
 
-            // 2. Predvyplň "agg" objekt všetkými dňami v rozsahu (nastav nuly)
             if (start && end) {
                 let curr = new Date(start);
                 while (curr <= end) {
@@ -308,21 +289,17 @@
                 }
             }
 
-            // 3. Naplň objekt reálnymi dátami (tak ako doteraz)
             rows.forEach(r => {
                 const d = parseDateSafe(r[0]);
                 if (!d) return;
                 const key = d.toISOString().slice(0, 10);
                 const type = normalizeType(r[2]);
                 const liters = volumeFor(type);
-
-                // Ak by náhodou kľúč neexistoval (mimo rozsahu), vytvor ho
                 if (!agg[key]) agg[key] = { male: 0, velke: 0, total: 0 };
-                
                 agg[key][type]++;
                 agg[key].total += liters;
             });
-            // Vytvprí polia pre typy splachnuti a litre
+
             const keys = Object.keys(agg).sort();
             return {
                 labels: keys,
@@ -332,74 +309,75 @@
             };
         }
 
-        // Vykreslenie grafu
-        function renderChart(labels, maleData, velkeData) {
+        function renderChart(agg, avgValue) {
             const ctx = document.getElementById('chart').getContext('2d');
             if(chart) chart.destroy();
             chart = new Chart(ctx, {
-                type:'bar',
-                data:{
-                    labels: labels,
-                    datasets:[
-                        { label:'Malé (3L)', data:maleData, backgroundColor:'rgba(37,99,235,0.9)', borderRadius:4 },
-                        { label:'Veľké (6L)', data:velkeData, backgroundColor:'rgba(59,130,246,0.6)', borderRadius:4 }
+                data: {
+                    labels: agg.labels,
+                    datasets: [
+                        { type: 'bar', label: 'Malé (3L)', data: agg.male, backgroundColor: 'rgba(37,99,235,0.9)', borderRadius: 4, stacked: true },
+                        { type: 'bar', label: 'Veľké (6L)', data: agg.velke, backgroundColor: 'rgba(59,130,246,0.6)', borderRadius: 4, stacked: true },
+                        { 
+                            type: 'line', 
+                            label: 'Priemer', 
+                            data: new Array(agg.labels.length).fill(avgValue), 
+                            borderColor: '#ef4444', 
+                            borderDash: [5, 5], 
+                            borderWidth: 2, 
+                            pointRadius: 0, 
+                            fill: false 
+                        }
                     ]
                 },
-                options:{
-                    responsive:true,
-                    maintainAspectRatio:false,
-                    plugins:{ legend:{ position:'top', labels:{ boxWidth:10, color:'var(--color-text-light)' } } },
-                    scales:{ x:{ stacked:true, grid:{ display:false } }, y:{ stacked:true, beginAtZero:true, grid:{ color:'#f3f4f6' } } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
                 }
             });
         }
 
-        // Naplnenie UI
         function populateUI(rows) {
             const tbody = document.querySelector('#dataTable tbody');
             tbody.innerHTML = '';
-
             let countMale = 0, countVelke = 0, litersTotal = 0;
-            const latestForTable = rows.slice().reverse().slice(0,200);
 
-            latestForTable.forEach(r=>{
-                const date = r[0] instanceof Date ? r[0].toLocaleDateString('sk-SK') : '';
-                const time = r[1]||'';
-                const typeOriginal = r[2]||'';
-                const liters = volumeFor(normalizeType(typeOriginal));
-
+            rows.slice().reverse().slice(0, 200).forEach(r => {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${date}</td><td>${time}</td><td>${typeOriginal}</td><td>${liters}</td>`;
+                const lit = volumeFor(normalizeType(r[2]));
+                tr.innerHTML = `<td>${r[0]?.toLocaleDateString('sk-SK')||''}</td><td>${r[1]||''}</td><td>${r[2]||''}</td><td>${lit}</td>`;
                 tbody.appendChild(tr);
             });
 
-            rows.forEach(r=>{
+            rows.forEach(r => {
                 const type = normalizeType(r[2]);
-                const liters = volumeFor(type);
-                if(type==='male') countMale++; else countVelke++;
-                litersTotal += liters;
+                if(type === 'male') countMale++; else countVelke++;
+                litersTotal += volumeFor(type);
             });
 
             document.getElementById('countMale').textContent = countMale;
             document.getElementById('countVelke').textContent = countVelke;
             document.getElementById('countTotal').textContent = countMale + countVelke;
-            document.getElementById('totalLiters').textContent = litersTotal.toFixed(1)+' L';
+            document.getElementById('totalLiters').textContent = litersTotal.toFixed(1) + ' L';
 
             const agg = aggregateByDate(rows);
-            if(agg.labels.length>0) renderChart(agg.labels, agg.male, agg.velke);
+            const daysCount = agg.labels.length || 1;
+            const avg = litersTotal / daysCount;
+            
+            // Zobrazenie priemeru v novej karte
+            document.getElementById('avgLiters').textContent = avg.toFixed(1) + ' L';
+
+            if(agg.labels.length > 0) renderChart(agg, avg);
         }
 
-        // Quick filter
         function setQuickFilter(days, btn) {
             document.querySelectorAll('.quick-actions .btn-filter').forEach(b=>b.classList.remove('active'));
             if(btn) btn.classList.add('active');
-
             const end = new Date(), start = new Date();
-            start.setDate(end.getDate()-days);
-
-            document.getElementById('dateFrom').value = start.toISOString().slice(0,10);
-            document.getElementById('dateTo').value = end.toISOString().slice(0,10);
-
+            start.setDate(end.getDate() - (days - 1));
+            document.getElementById('dateFrom').value = start.toISOString().slice(0, 10);
+            document.getElementById('dateTo').value = end.toISOString().slice(0, 10);
             applyDateFilter(true);
         }
 
@@ -411,57 +389,43 @@
             populateUI(allFetchedRows);
         }
 
-        function applyDateFilter(isQuick=false) {
+        function applyDateFilter(isQuick = false) {
             const fromVal = document.getElementById('dateFrom').value;
             const toVal = document.getElementById('dateTo').value;
-
-            if(!isQuick && (fromVal||toVal)) {
-                document.querySelectorAll('.quick-actions .btn-filter').forEach(b=>b.classList.remove('active'));
-            }
-
-            if(!fromVal && !toVal) {
-                populateUI(allFetchedRows);
-                return;
-            }
-
+            if(!isQuick) document.querySelectorAll('.quick-actions .btn-filter').forEach(b=>b.classList.remove('active'));
+            if(!fromVal && !toVal) { populateUI(allFetchedRows); return; }
             const fromDate = fromVal ? new Date(fromVal) : new Date('2000-01-01');
             fromDate.setHours(0,0,0,0);
             const toDate = toVal ? new Date(toVal) : new Date();
             toDate.setHours(23,59,59,999);
-
-            const filteredRows = allFetchedRows.filter(r=>{
+            const filteredRows = allFetchedRows.filter(r => {
                 const d = parseDateSafe(r[0]);
                 if(!d) return false;
-                d.setHours(12,0,0,0); // porovnávame len deň
-                return d>=fromDate && d<=toDate;
+                d.setHours(12,0,0,0);
+                return d >= fromDate && d <= toDate;
             });
-
             populateUI(filteredRows);
         }
 
-        // Načítanie dát
         async function updateAll() {
-            try{
+            try {
                 const resp = await fetch(SHEET_GVIZ_URL);
                 const text = await resp.text();
                 const gv = parseGViz(text);
-                allFetchedRows = (gv.table.rows||[]).map(r=>[parseDateSafe(r.c[0]?.v), r.c[1]?.v||'', r.c[2]?.v||'']);
-
+                allFetchedRows = (gv.table.rows || []).map(r => [parseDateSafe(r.c[0]?.v), r.c[1]?.v || '', r.c[2]?.v || '']);
                 const activeQuick = document.querySelector('.quick-actions .active');
-                const fromVal = document.getElementById('dateFrom').value;
-                if(activeQuick || fromVal) applyDateFilter(!!activeQuick);
+                if(activeQuick || document.getElementById('dateFrom').value) applyDateFilter(!!activeQuick);
                 else resetFilters(document.querySelector('.quick-actions button:last-child'));
-
                 const now = new Date();
-                document.getElementById('lastUpdate').textContent = `Aktualizované: ${now.toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'})}`;
-            } catch(err){
-                console.error('Chyba pri načítaní dát:', err);
+                document.getElementById('lastUpdate').textContent = `Aktualizované: ${now.toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' })}`;
+            } catch(err) {
+                console.error(err);
                 document.getElementById('lastUpdate').textContent = "Chyba načítania!";
             }
         }
 
         updateAll();
-        setInterval(updateAll,30000);
+        setInterval(updateAll, 30000);
     </script>
 </body>
 </html>
