@@ -441,72 +441,22 @@
 
         // Načítanie dát
         async function updateAll() {
-            // 1. Zobrazenie stavu načítavania v štatistikách (voliteľné)
-            const statsIds = ['countMale', 'countVelke', 'countTotal', 'totalLiters'];
-            if (allFetchedRows.length === 0) {
-                statsIds.forEach(id => document.getElementById(id).textContent = "--");
-            }
-
-            try {
+            try{
                 const resp = await fetch(SHEET_GVIZ_URL);
-                if (!resp.ok) throw new Error('Nepodarilo sa stiahnuť dáta');
-                
                 const text = await resp.text();
+                const gv = parseGViz(text);
+                allFetchedRows = (gv.table.rows||[]).map(r=>[parseDateSafe(r.c[0]?.v), r.c[1]?.v||'', r.c[2]?.v||'']);
 
-                // 2. BEZPEČNEJŠÍ PARSING: Namiesto replace hľadáme prvú "{" a poslednú "}"
-                const startIdx = text.indexOf('{');
-                const endIdx = text.lastIndexOf('}') + 1;
-                
-                if (startIdx === -1 || endIdx === 0) {
-                    throw new Error('Neplatný formát dát z Google Sheets');
-                }
-                
-                const jsonText = text.substring(startIdx, endIdx);
-                const gv = JSON.parse(jsonText);
-
-                // 3. SPRACOVANIE RIADKOV
-                allFetchedRows = (gv.table.rows || []).map(r => {
-                    // Bezpečné vytiahnutie hodnôt z buniek (c[0], c[1], c[2])
-                    const cellDate = r.c[0] ? r.c[0].v : null;
-                    const cellTime = r.c[1] ? r.c[1].v : '';
-                    const cellType = r.c[2] ? r.c[2].v : '';
-                    
-                    return [
-                        parseDateSafe(cellDate), 
-                        cellTime, 
-                        cellType
-                    ];
-                });
-
-                // 4. AKTUALIZÁCIA UI (Filtre a Tabuľka)
                 const activeQuick = document.querySelector('.quick-actions .active');
                 const fromVal = document.getElementById('dateFrom').value;
-                const toVal = document.getElementById('dateTo').value;
+                if(activeQuick || fromVal) applyDateFilter(!!activeQuick);
+                else resetFilters(document.querySelector('.quick-actions button:last-child'));
 
-                if (activeQuick || fromVal || toVal) {
-                    applyDateFilter(!!activeQuick);
-                } else {
-                    // Ak nie sú filtre, zobraz všetko a nastav tlačidlo "Všetko" ako aktívne
-                    const btnVsetko = document.querySelector('.quick-actions button:last-child');
-                    resetFilters(btnVsetko);
-                }
-
-                // 5. ČAS POSLEDNEJ AKTUALIZÁCIE
                 const now = new Date();
-                document.getElementById('lastUpdate').textContent = 
-                    `Aktualizované: ${now.toLocaleTimeString('sk-SK', {hour:'2-digit', minute:'2-digit'})}`;
-
-            } catch (err) {
-                console.error('Chyba v updateAll:', err);
+                document.getElementById('lastUpdate').textContent = `Aktualizované: ${now.toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'})}`;
+            } catch(err){
+                console.error('Chyba pri načítaní dát:', err);
                 document.getElementById('lastUpdate').textContent = "Chyba načítania!";
-                
-                // Ak nastane chyba, vypíšeme ju aj do tabuľky pre lepšiu diagnostiku
-                const tbody = document.querySelector('#dataTable tbody');
-                if (tbody) {
-                    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">
-                        Chyba: ${err.message}. Skontrolujte konzolu (F12).
-                    </td></tr>`;
-                }
             }
         }
 
