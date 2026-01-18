@@ -149,6 +149,23 @@
             .quick-actions button { flex-grow: 1; }
             .stat .value { font-size: 1.8rem; }
         }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+
+        .loader-text {
+            animation: pulse 1.5s infinite ease-in-out;
+            font-weight: 500;
+            font-style: italic;
+        }
+
+        /* Štýl pre hodnoty, ktoré sa práve načítavajú */
+        .loading-val {
+            color: var(--color-border) !important;
+        }
     </style>
 </head>
 <body>
@@ -207,7 +224,13 @@
         <div style="overflow:auto;max-height:400px">
             <table id="dataTable">
                 <thead><tr><th>Dátum</th><th>Čas</th><th>Typ</th><th>Objem (L)</th></tr></thead>
-                <tbody></tbody>
+                <tbody id="tableBody">
+                    <tr>
+                        <td colspan="4" style="text-align:center; padding: 40px; color: var(--color-text-light);">
+                            <div class="loader-text">Načítavam dáta z Google Sheets...</div>
+                        </td>
+                    </tr>
+                </tbody>
             </table>
         </div>
     </div>
@@ -241,28 +264,60 @@
         function parseDateSafe(d) {
             if (!d) return null;
             if (d instanceof Date) return d;
-            if (typeof d === "string" && d.startsWith("Date(")) {
-                const nums = d.match(/\d+/g);
-                if (nums && nums.length >= 3) return new Date(nums[0], nums[1], nums[2]);
+            if (typeof d === "string") {
+                if (d.startsWith("Date(")) {
+                    const nums = d.match(/\d+/g);
+                    // Mesiac v JS Date je 0-11, gviz to posiela rovnako
+                    if (nums && nums.length >= 3) return new Date(nums[0], nums[1], nums[2]);
+                }
+                const isoDate = new Date(d);
+                if (!isNaN(isoDate)) return isoDate;
             }
             return null;
         }
 
-        // Agregácia pre graf
+        // Roztriedenie a naplnenie grafu podľa dátumov
         function aggregateByDate(rows) {
             const agg = {};
+            
+            // 1. Zisti rozsah dátumov z filtrov
+            let start = document.getElementById('dateFrom').value ? new Date(document.getElementById('dateFrom').value) : null;
+            let end = document.getElementById('dateTo').value ? new Date(document.getElementById('dateTo').value) : null;
+
+            // Ak filtre nie sú nastavené, zober prvý a posledný dátum z dát
+            if (!start || !end) {
+                const dates = rows.map(r => parseDateSafe(r[0])).filter(d => d);
+                if (dates.length > 0) {
+                    start = new Date(Math.min(...dates));
+                    end = new Date(Math.max(...dates));
+                }
+            }
+
+            // 2. Predvyplň "agg" objekt všetkými dňami v rozsahu (nastav nuly)
+            if (start && end) {
+                let curr = new Date(start);
+                while (curr <= end) {
+                    const key = curr.toISOString().slice(0, 10);
+                    agg[key] = { male: 0, velke: 0, total: 0 };
+                    curr.setDate(curr.getDate() + 1);
+                }
+            }
+
+            // 3. Naplň objekt reálnymi dátami (tak ako doteraz)
             rows.forEach(r => {
                 const d = parseDateSafe(r[0]);
                 if (!d) return;
-                const key = d.toISOString().slice(0,10);
+                const key = d.toISOString().slice(0, 10);
                 const type = normalizeType(r[2]);
                 const liters = volumeFor(type);
 
-                if (!agg[key]) agg[key] = { male:0, velke:0, total:0 };
+                // Ak by náhodou kľúč neexistoval (mimo rozsahu), vytvor ho
+                if (!agg[key]) agg[key] = { male: 0, velke: 0, total: 0 };
+                
                 agg[key][type]++;
                 agg[key].total += liters;
             });
-
+            // Vytvprí polia pre typy splachnuti a litre
             const keys = Object.keys(agg).sort();
             return {
                 labels: keys,
