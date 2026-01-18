@@ -119,13 +119,16 @@
         /* --- OBSAH --- */
         .main-content {
             margin-left: var(--sidebar-width);
+            width: calc(100% - var(--sidebar-width)); /* Šírka sa dopočíta podľa menu */
             flex-grow: 1;
-            padding: 40px 40px 40px 60px;
-            max-width: 1400px;
-            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 40px;
+            box-sizing: border-box; /* Dôležité: padding nebude rozširovať šírku */
+            max-width: 100%; /* Odstránime fixných 1400px, aby sa to mohlo zmrštiť */
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         body.collapsed .main-content {
             margin-left: var(--sidebar-collapsed-width);
+            width: calc(100% - var(--sidebar-collapsed-width));
         }
 
         .section { display: none; }
