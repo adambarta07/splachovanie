@@ -39,7 +39,6 @@
             transition: background 0.3s ease;
         }
 
-        /* --- SIDEBAR LOGIKA --- */
         .sidebar {
             width: var(--sidebar-width);
             background: var(--color-card);
@@ -54,9 +53,7 @@
             overflow: hidden;
         }
 
-        body.collapsed .sidebar {
-            width: var(--sidebar-collapsed-width);
-        }
+        body.collapsed .sidebar { width: var(--sidebar-collapsed-width); }
 
         .sidebar-header {
             display: flex;
@@ -66,10 +63,7 @@
             height: 40px;
         }
 
-        body.collapsed .sidebar-header {
-            justify-content: center;
-            padding: 0;
-        }
+        body.collapsed .sidebar-header { justify-content: center; padding: 0; }
 
         .toggle-btn {
             background: none; border: none; cursor: pointer;
@@ -116,7 +110,6 @@
         .nav-btn:hover { background: var(--color-bg); color: var(--color-blue-dark); }
         .nav-btn.active { background: var(--color-blue-dark); color: white; }
 
-        /* --- HLAVNÝ OBSAH (Oprava pretekania a prispôsobenie šírky) --- */
         .main-content {
             position: relative;
             margin-left: var(--sidebar-width);
@@ -163,7 +156,6 @@
 
         .table-container { overflow: auto; max-height: 400px; border-radius: 8px; }
         table { width: 100%; border-collapse: collapse; }
-        /* Oprava sticky hlavičky: Pevné pozadie zamedzí prekrývaniu textu */
         th { text-align: left; padding: 12px; color: var(--color-text-light); border-bottom: 2px solid var(--color-border); background: var(--color-card); position: sticky; top: 0; z-index: 10; }
         td { padding: 12px; border-bottom: 1px solid var(--color-border); white-space: nowrap; }
 
@@ -330,8 +322,8 @@
             localStorage.setItem('activeQuickFilter', days);
             const end = new Date(), start = new Date();
             start.setDate(end.getDate() - (days - 1));
-            document.getElementById('dateFrom').value = start.toISOString().slice(0, 10);
-            document.getElementById('dateTo').value = end.toISOString().slice(0, 10);
+            document.getElementById('dateFrom').value = start.toLocaleDateString('sv-SE');
+            document.getElementById('dateTo').value = end.toLocaleDateString('sv-SE');
             applyDateFilter(true);
         }
 
@@ -378,36 +370,52 @@
             if (!d) return null;
             if (d instanceof Date) return d;
             if (typeof d === "string" && d.startsWith("Date(")) {
-                const nums = d.match(/\d+/g);
-                return new Date(nums[0], nums[1], nums[2]);
+                const nums = d.match(/\d+/g).map(Number);
+                return new Date(nums[0], nums[1], nums[2], 0, 0, 0);
             }
-            return isNaN(new Date(d)) ? null : new Date(d);
+            const parsed = new Date(d);
+            parsed.setHours(0,0,0,0);
+            return isNaN(parsed) ? null : parsed;
+        }
+
+        function getLocalDateString(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
         }
 
         function aggregateByDate(rows) {
             const agg = {};
-            let start = document.getElementById('dateFrom').value ? new Date(document.getElementById('dateFrom').value) : null;
-            let end = document.getElementById('dateTo').value ? new Date(document.getElementById('dateTo').value) : null;
-            if (!start || !end) {
+            let startVal = document.getElementById('dateFrom').value;
+            let endVal = document.getElementById('dateTo').value;
+            let start, end;
+
+            if (startVal && endVal) {
+                start = new Date(startVal);
+                end = new Date(endVal);
+            } else {
                 const dates = rows.map(r => parseDateSafe(r[0])).filter(d => d);
-                if (dates.length > 0) {
-                    start = new Date(Math.min(...dates));
-                    end = new Date(Math.max(...dates));
-                }
+                start = dates.length > 0 ? new Date(Math.min(...dates)) : new Date();
+                end = new Date();
             }
-            if (start && end) {
-                let curr = new Date(start);
-                while (curr <= end) {
-                    agg[curr.toISOString().slice(0, 10)] = { male: 0, velke: 0 };
-                    curr.setDate(curr.getDate() + 1);
-                }
+            start.setHours(0,0,0,0);
+            end.setHours(23,59,59,999);
+
+            let curr = new Date(start);
+            while (curr <= end) {
+                const key = getLocalDateString(curr);
+                agg[key] = { male: 0, velke: 0 };
+                curr.setDate(curr.getDate() + 1);
             }
+
             rows.forEach(r => {
                 const d = parseDateSafe(r[0]); if (!d) return;
-                const key = d.toISOString().slice(0, 10);
+                const key = getLocalDateString(d);
                 const type = normalizeType(r[2]);
                 if (agg[key]) agg[key][type]++;
             });
+
             const keys = Object.keys(agg).sort();
             return { labels: keys, male: keys.map(k => agg[k].male), velke: keys.map(k => agg[k].velke) };
         }
@@ -415,12 +423,14 @@
         function populateUI(rows) {
             const tbody = document.getElementById('tableBody'); tbody.innerHTML = '';
             let cM = 0, cV = 0, litTotal = 0;
+            
             rows.slice().reverse().forEach((r, idx) => {
                 const type = normalizeType(r[2]);
                 const lit = volumeFor(type);
                 if (idx < 200) {
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td>${r[0]?.toLocaleDateString('sk-SK')||''}</td><td>${r[1]||''}</td><td>${type==='male'?'Malé':'Veľké'}</td><td>${lit}L</td>`;
+                    const d = parseDateSafe(r[0]);
+                    tr.innerHTML = `<td>${d ? d.toLocaleDateString('sk-SK') : ''}</td><td>${r[1]||''}</td><td>${type==='male'?'Malé':'Veľké'}</td><td>${lit}L</td>`;
                     tbody.appendChild(tr);
                 }
                 if(type==='male') cM++; else cV++;
@@ -435,11 +445,9 @@
             const agg = aggregateByDate(rows);
             const maleLiters = agg.male.map(v => v * OBJEM_MALE);
             const velkeLiters = agg.velke.map(v => v * OBJEM_VELKE);
-            
             const dailyTotals = maleLiters.map((val, i) => val + velkeLiters[i]);
             const maxVal = Math.max(...dailyTotals, 1);
             const chartMax = Math.ceil((maxVal * 1.15) / 5) * 5;
-
             const avg = litTotal / (agg.labels.length || 1);
             document.getElementById('avgLiters').textContent = avg.toFixed(1) + ' L';
 
@@ -451,17 +459,15 @@
                     datasets: [
                         { 
                             type: 'bar', label: 'Malé (L)', data: maleLiters, 
-                            backgroundColor: '#2563eb', stacked: true,
-                            borderRadius: 3 
+                            backgroundColor: '#2563eb', borderRadius: 3 
                         },
                         { 
                             type: 'bar', label: 'Veľké (L)', data: velkeLiters, 
-                            backgroundColor: '#93c5fd', stacked: true,
-                            borderRadius: 3 
+                            backgroundColor: '#93c5fd', borderRadius: 3 
                         },
                         { 
                             type: 'line', label: 'Priemer (L)', data: new Array(agg.labels.length).fill(avg), 
-                            borderColor: '#ef4444', borderDash: [5, 5], pointRadius: 0, fill: false, stacked: false 
+                            borderColor: '#ef4444', borderDash: [5, 5], pointRadius: 0, fill: false, order: -1 
                         }
                     ]
                 },
@@ -471,8 +477,7 @@
                         x: { stacked: true }, 
                         y: { 
                             stacked: true, beginAtZero: true, max: chartMax, 
-                            title: { display: true, text: 'Litre (L)' },
-                            ticks: { stepSize: 5 } 
+                            title: { display: true, text: 'Litre (L)' }
                         } 
                     }
                 }
@@ -483,12 +488,14 @@
             try {
                 const resp = await fetch(SHEET_GVIZ_URL);
                 const gv = parseGViz(await resp.text());
-                allFetchedRows = (gv.table.rows || []).map(r => [parseDateSafe(r.c[0]?.v), r.c[1]?.v || '', r.c[2]?.v || '']);
+                allFetchedRows = (gv.table.rows || []).map(r => [r.c[0]?.v, r.c[1]?.v || '', r.c[2]?.v || '']);
+                
                 if (lastFilter === 'all') resetFilters(document.getElementById('filter-all'));
                 else if (!isNaN(lastFilter)) {
                     const btn = document.querySelector(`[data-days="${lastFilter}"]`);
                     if(btn) setQuickFilter(parseInt(lastFilter), btn);
                 } else applyDateFilter(false);
+                
                 updateLabels();
                 document.getElementById('lastUpdate').textContent = `Aktualizované: ${new Date().toLocaleTimeString()}`;
             } catch(err) { console.error(err); }
