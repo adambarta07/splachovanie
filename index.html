@@ -4,656 +4,31 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Splachovanie - PRO Dashboard</title>
-
+    <link rel="stylesheet" href="style.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <style>
-        :root {
-            --color-blue-dark: #2563eb;
-            --color-blue-light: #3b82f6;
-            --color-text-dark: #1f2937;
-            --color-text-light: #6b7280;
-            --color-bg: #f9fafb;
-            --color-card: #ffffff;
-            --color-border: #e5e7eb;
-            --color-danger: #ef4444;
-            --color-success: #10b981;
-            --color-warning: #f59e0b;
-            --sidebar-width: 230px;
-            --sidebar-collapsed-width: 64px;
-        }
-
-        [data-theme="dark"] {
-            --color-bg: #111827;
-            --color-card: #1f2937;
-            --color-text-dark: #f9fafb;
-            --color-text-light: #9ca3af;
-            --color-border: #374151;
-        }
-
-        * { box-sizing: border-box; }
-
-        body {
-            font-family: 'Inter', system-ui, sans-serif;
-            margin: 0;
-            background-color: var(--color-bg);
-            color: var(--color-text-dark);
-            display: flex;
-            min-height: 100vh;
-            transition: background 0.3s ease;
-        }
-
-        .sidebar {
-            width: var(--sidebar-width);
-            background: var(--color-card);
-            border-right: 1px solid var(--color-border);
-            display: flex;
-            flex-direction: column;
-            padding: 20px 0;
-            position: fixed;
-            height: 100vh;
-            z-index: 100;
-            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            overflow-x: hidden;
-            overflow-y: auto;
-        }
-
-        body.collapsed .sidebar {
-            width: var(--sidebar-collapsed-width);
-        }
-
-        .sidebar-header {
-            display: flex;
-            align-items: center;
-            padding: 0 12px;
-            margin-bottom: 20px;
-            height: 40px;
-        }
-
-        body.collapsed .sidebar-header {
-            justify-content: center;
-            padding: 0;
-        }
-
-        .toggle-btn {
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: var(--color-text-dark);
-            font-size: 1.4rem;
-            padding: 5px;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 36px;
-        }
-
-        .toggle-btn:hover { background: var(--color-bg); }
-
-        .sidebar-title {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--color-blue-dark);
-            white-space: nowrap;
-            margin-left: 15px;
-        }
-
-        body.collapsed .sidebar-title { display: none; }
-
-        .nav-menu {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            flex-grow: 1;
-            padding: 0 8px;
-        }
-
-        body.collapsed .nav-menu { padding: 0 5px; }
-
-        .nav-btn {
-            background: none;
-            border: none;
-            padding: 12px 10px;
-            border-radius: 8px;
-            text-align: left;
-            cursor: pointer;
-            color: var(--color-text-light);
-            font-weight: 500;
-            font-size: 0.95rem;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            width: 100%;
-            white-space: nowrap;
-        }
-
-        body.collapsed .nav-btn {
-            justify-content: center;
-            padding: 12px 0;
-        }
-
-        .nav-btn .emoji {
-            font-size: 1.2rem;
-            min-width: 36px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-shrink: 0;
-        }
-
-        .nav-text { margin-left: 10px; }
-
-        body.collapsed .nav-text { display: none; }
-
-        .nav-btn:hover {
-            background: var(--color-bg);
-            color: var(--color-blue-dark);
-        }
-
-        .nav-btn.active {
-            background: var(--color-blue-dark);
-            color: white;
-        }
-
-        .submenu {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            margin: 0 0 8px 0;
-            padding-left: 8px;
-        }
-
-        body.collapsed .submenu {
-            display: none !important;
-        }
-
-        .submenu.hidden {
-            display: none;
-        }
-
-        .submenu-btn {
-            background: none;
-            border: none;
-            padding: 10px 10px 10px 46px;
-            border-radius: 8px;
-            text-align: left;
-            cursor: pointer;
-            color: var(--color-text-light);
-            font-size: 0.88rem;
-            width: 100%;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .submenu-btn:hover {
-            background: var(--color-bg);
-            color: var(--color-blue-dark);
-        }
-
-        .submenu-btn.active {
-            background: rgba(37, 99, 235, 0.12);
-            color: var(--color-blue-dark);
-            font-weight: 600;
-        }
-
-        .submenu-meta {
-            font-size: 0.75rem;
-            opacity: 0.8;
-            display: block;
-            margin-top: 2px;
-        }
-
-        .main-content {
-            position: relative;
-            margin-left: var(--sidebar-width);
-            width: calc(100% - var(--sidebar-width));
-            flex-grow: 1;
-            padding: 40px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        body.collapsed .main-content {
-            margin-left: var(--sidebar-collapsed-width);
-            width: calc(100% - var(--sidebar-collapsed-width));
-        }
-
-        #lastUpdateContainer {
-            position: absolute;
-            top: 20px;
-            right: 40px;
-            font-size: 0.8rem;
-            color: var(--color-text-light);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .loading-dot {
-            width: 8px;
-            height: 8px;
-            background-color: var(--color-blue-dark);
-            border-radius: 50%;
-            display: inline-block;
-            opacity: 0;
-        }
-
-        .loading .loading-dot {
-            animation: pulse 1.5s infinite;
-            opacity: 1;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(0.8); opacity: 0.4; }
-            50% { transform: scale(1.2); opacity: 1; }
-            100% { transform: scale(0.8); opacity: 0.4; }
-        }
-
-        #toast {
-            visibility: hidden;
-            min-width: 250px;
-            background-color: var(--color-success);
-            color: #fff;
-            text-align: center;
-            border-radius: 8px;
-            padding: 16px;
-            position: fixed;
-            z-index: 1000;
-            bottom: 30px;
-            right: 30px;
-            font-weight: 500;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-
-        #toast.show {
-            visibility: visible;
-            animation: fadeInOut 2.5s;
-        }
-
-        @keyframes fadeInOut {
-            0% { opacity: 0; transform: translateY(20px); }
-            15% { opacity: 1; transform: translateY(0); }
-            85% { opacity: 1; transform: translateY(0); }
-            100% { opacity: 0; transform: translateY(20px); }
-        }
-
-        .section { display: none; }
-        .section.active { display: block; animation: fadeIn 0.3s ease; }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .card {
-            background: var(--color-card);
-            border-radius: 12px;
-            padding: 25px;
-            margin-bottom: 25px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border: 1px solid var(--color-border);
-            width: 100%;
-        }
-
-        .page-title {
-            margin-top: 0;
-            margin-bottom: 8px;
-        }
-
-        .page-subtitle {
-            color: var(--color-text-light);
-            margin-top: 0;
-        }
-
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-
-        .stat {
-            padding: 15px;
-            border-radius: 12px;
-            background: var(--color-card);
-            border: 1px solid var(--color-border);
-            border-left: 4px solid var(--color-blue-dark);
-        }
-
-        .stat.avg { border-left-color: var(--color-danger); }
-
-        .stat .value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-top: 5px;
-        }
-
-        .stat .label {
-            font-size: 0.8rem;
-            color: var(--color-text-light);
-            font-weight: 500;
-        }
-
-        .filter-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .quick-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .date-inputs {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        button.btn-primary,
-        button.btn-filter,
-        button.btn-secondary {
-            padding: 10px 16px;
-            border-radius: 6px;
-            border: 1px solid var(--color-border);
-            cursor: pointer;
-            background: var(--color-card);
-            color: var(--color-text-dark);
-            font-weight: 500;
-            transition: background 0.2s, color 0.2s, border-color 0.2s;
-        }
-
-        button.btn-filter.active,
-        button.btn-primary {
-            background: var(--color-blue-dark);
-            color: white;
-            border-color: var(--color-blue-dark);
-        }
-
-        button.btn-secondary {
-            background: transparent;
-        }
-
-        input[type="date"],
-        input[type="number"],
-        input[type="text"],
-        select,
-        textarea {
-            padding: 10px;
-            border-radius: 6px;
-            border: 1px solid var(--color-border);
-            background: var(--color-card);
-            color: var(--color-text-dark);
-            font-family: inherit;
-        }
-
-        textarea {
-            min-height: 90px;
-            resize: vertical;
-        }
-
-        .table-container {
-            overflow: auto;
-            max-height: 400px;
-            border-radius: 8px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th {
-            text-align: left;
-            padding: 12px;
-            color: var(--color-text-light);
-            border-bottom: 2px solid var(--color-border);
-            background: var(--color-card);
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            font-size: 0.85rem;
-        }
-
-        td {
-            padding: 12px;
-            border-bottom: 1px solid var(--color-border);
-            white-space: nowrap;
-            font-size: 0.9rem;
-        }
-
-        .devices-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
-            gap: 20px;
-        }
-
-        .device-card {
-            background: var(--color-card);
-            border: 1px solid var(--color-border);
-            border-radius: 14px;
-            padding: 18px;
-        }
-
-        .device-card h3 {
-            margin: 0 0 6px 0;
-        }
-
-        .device-id {
-            color: var(--color-text-light);
-            font-size: 0.85rem;
-            margin-bottom: 14px;
-        }
-
-        .device-metrics {
-            display: grid;
-            gap: 8px;
-            margin-bottom: 16px;
-        }
-
-        .device-metric-line {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            font-size: 0.92rem;
-        }
-
-        .battery-wrap {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .battery-bar {
-            width: 100px;
-            height: 10px;
-            border-radius: 999px;
-            background: var(--color-border);
-            overflow: hidden;
-            flex-shrink: 0;
-        }
-
-        .battery-fill {
-            height: 100%;
-            border-radius: 999px;
-        }
-
-        .fill-good { background: var(--color-success); }
-        .fill-mid { background: var(--color-warning); }
-        .fill-low { background: var(--color-danger); }
-
-        .muted {
-            color: var(--color-text-light);
-        }
-
-        .settings-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 20px;
-        }
-
-        .field-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            margin-bottom: 14px;
-        }
-
-        .field-group label {
-            font-size: 0.9rem;
-            font-weight: 600;
-        }
-
-        .inline-actions {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .header-actions {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-
-        .empty-state {
-            text-align: center;
-            color: var(--color-text-light);
-            padding: 30px 10px;
-        }
-
-        .divider {
-            height: 1px;
-            background: var(--color-border);
-            margin: 15px 0;
-        }
-
-        @media (max-width: 768px) {
-            body { flex-direction: column; }
-
-            .sidebar {
-                width: 100% !important;
-                height: auto;
-                position: relative;
-                border-bottom: 1px solid var(--color-border);
-                padding: 10px 0;
-                border-right: none;
-            }
-
-            .sidebar-header {
-                margin-bottom: 10px;
-                justify-content: center;
-            }
-
-            .toggle-btn { display: none; }
-
-            .sidebar-title {
-                margin-left: 0;
-            }
-
-            .nav-menu {
-                gap: 10px;
-            }
-
-            .nav-btn {
-                width: 100%;
-                padding: 10px 12px;
-            }
-
-            .nav-text {
-                display: block !important;
-                font-size: 0.9rem;
-            }
-
-            .submenu {
-                padding-left: 0;
-            }
-
-            .submenu-btn {
-                padding-left: 16px;
-            }
-
-            .main-content {
-                margin-left: 0 !important;
-                width: 100% !important;
-                padding: 15px;
-            }
-
-            #lastUpdateContainer {
-                position: relative;
-                top: 0;
-                right: 0;
-                justify-content: center;
-                margin-bottom: 15px;
-            }
-
-            .filter-row {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 20px;
-            }
-
-            .quick-actions {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 8px;
-                width: 100%;
-            }
-
-            .date-inputs {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 10px;
-            }
-
-            .date-inputs label {
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
-                font-size: 0.85rem;
-            }
-
-            .btn-primary, .btn-secondary {
-                width: 100%;
-                padding: 12px;
-            }
-
-            .card { padding: 15px; }
-            .stats { grid-template-columns: 1fr 1fr; }
-            .header-actions { flex-direction: column; align-items: stretch; }
-        }
-    </style>
 </head>
 <body data-theme="light">
 
     <aside class="sidebar">
         <div class="sidebar-header">
-            <button class="toggle-btn" onclick="toggleSidebar()">☰</button>
+            <button class="toggle-btn" id="toggleSidebarBtn">☰</button>
             <span class="sidebar-title">Splachovanie</span>
         </div>
 
         <nav class="nav-menu">
-            <button class="nav-btn active" id="menu-devices-root" onclick="toggleDevicesMenu()">
+            <button class="nav-btn active" id="menu-devices-root">
                 <span class="emoji">📟</span>
                 <span class="nav-text">Moje zariadenia</span>
             </button>
 
             <div id="deviceSubmenu" class="submenu"></div>
 
-            <button class="nav-btn" id="menu-settings-global" onclick="showGlobalSettings()">
+            <button class="nav-btn" id="menu-settings-global">
                 <span class="emoji">⚙️</span>
                 <span class="nav-text">Globálne nastavenia</span>
             </button>
 
-            <button class="nav-btn" id="menu-settings-device" onclick="showDeviceSettings()">
+            <button class="nav-btn" id="menu-settings-device">
                 <span class="emoji">🔧</span>
                 <span class="nav-text">Nastavenia zariadenia</span>
             </button>
@@ -666,1043 +41,221 @@
             <span id="lastUpdate">Načítavam...</span>
         </div>
 
-        <section id="section-devices-list" class="section active"></section>
-        <section id="section-device-detail" class="section"></section>
-        <section id="section-settings-global" class="section"></section>
-        <section id="section-settings-device" class="section"></section>
+        <!-- MOJE ZARIADENIA -->
+        <section id="section-devices-list" class="section active">
+            <div class="card">
+                <h1 class="page-title">📟 Moje zariadenia</h1>
+                <p class="page-subtitle">Prehľad všetkých monitorovacích zariadení a ich základných štatistík.</p>
+
+                <div class="stats">
+                    <div class="stat">
+                        <div class="label">Počet zariadení</div>
+                        <div class="value" id="devicesCount">0</div>
+                    </div>
+                    <div class="stat">
+                        <div class="label">Celkom spláchnutí</div>
+                        <div class="value" id="devicesTotalFlushes">0</div>
+                    </div>
+                    <div class="stat">
+                        <div class="label">Celková spotreba</div>
+                        <div class="value" id="devicesTotalLiters">0 L</div>
+                    </div>
+                </div>
+
+                <div id="devicesGrid" class="devices-grid"></div>
+            </div>
+        </section>
+
+        <!-- DETAIL ZARIADENIA -->
+        <section id="section-device-detail" class="section">
+            <div class="card">
+                <div class="header-actions">
+                    <div>
+                        <h1 class="page-title" id="deviceTitle">Zariadenie</h1>
+                        <p class="page-subtitle" id="deviceSubtitle">ID: -</p>
+                    </div>
+                    <div class="inline-actions">
+                        <button class="btn-secondary" id="backToDevicesBtn">← Späť na zariadenia</button>
+                        <button class="btn-primary" id="openDeviceSettingsBtn">Nastavenia zariadenia</button>
+                    </div>
+                </div>
+
+                <div class="stats" style="margin-top:20px;">
+                    <div class="stat">
+                        <div class="label">Batéria</div>
+                        <div class="value smaller" id="deviceBatteryInfo">—</div>
+                    </div>
+                    <div class="stat">
+                        <div class="label">Posledná aktivita</div>
+                        <div class="value medium" id="deviceLastSeen">—</div>
+                    </div>
+                    <div class="stat">
+                        <div class="label">Malé / Veľké litre</div>
+                        <div class="value medium" id="deviceLitersInfo">3 / 6 L</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="filter-row">
+                    <div class="quick-actions">
+                        <button class="btn-filter" data-days="7">1 týždeň</button>
+                        <button class="btn-filter" data-days="14">2 týždne</button>
+                        <button class="btn-filter" data-days="30">Mesiac</button>
+                        <button class="btn-filter" data-days="90">3 mesiace</button>
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <div class="filter-row">
+                    <div class="date-inputs">
+                        <label>Od: <input type="date" id="dateFrom"></label>
+                        <label>Do: <input type="date" id="dateTo"></label>
+                    </div>
+                    <button class="btn-primary" id="applyDateFilterBtn">Použiť filter</button>
+                </div>
+            </div>
+
+            <div class="stats">
+                <div class="stat"><div class="label" id="label-male">Malé (3L)</div><div id="countMale" class="value">0</div></div>
+                <div class="stat"><div class="label" id="label-velke">Veľké (6L)</div><div id="countVelke" class="value">0</div></div>
+                <div class="stat"><div class="label">Celkom</div><div id="countTotal" class="value">0</div></div>
+                <div class="stat"><div class="label">Spotreba</div><div id="totalLiters" class="value">0 L</div></div>
+                <div class="stat avg"><div class="label">Priemer/deň</div><div id="avgLiters" class="value">0 L</div></div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Graf spotreby</h3>
+                <div class="chart-wrap">
+                    <canvas id="chart"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Posledné záznamy</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Dátum</th>
+                                <th>Čas</th>
+                                <th>Typ</th>
+                                <th>L</th>
+                                <th>Batéria</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- GLOBÁLNE NASTAVENIA -->
+        <section id="section-settings-global" class="section">
+            <div class="card">
+                <h1 class="page-title">⚙️ Globálne nastavenia</h1>
+                <p class="page-subtitle">Nastavenia pre celú stránku.</p>
+
+                <div class="settings-grid">
+                    <div>
+                        <div class="field-group">
+                            <label>Téma</label>
+                            <div class="inline-actions">
+                                <button class="btn-primary" id="toggleThemeBtn">Prepnúť tmavý / svetlý režim</button>
+                            </div>
+                        </div>
+
+                        <div class="field-group">
+                            <label for="globalQuickFilterInput">Predvolený rýchly filter</label>
+                            <select id="globalQuickFilterInput">
+                                <option value="7">1 týždeň</option>
+                                <option value="14">2 týždne</option>
+                                <option value="30">Mesiac</option>
+                                <option value="90">3 mesiace</option>
+                            </select>
+                        </div>
+
+                        <div class="field-group">
+                            <label>Google Sheets ID</label>
+                            <input type="text" id="sheetIdDisplay" readonly>
+                        </div>
+
+                        <button class="btn-primary" id="saveGlobalSettingsBtn">Uložiť globálne nastavenia</button>
+                    </div>
+
+                    <div>
+                        <div class="field-group">
+                            <label>Info</label>
+                            <textarea readonly>Globálne nastavenia ovplyvňujú celú aplikáciu. Názov zariadenia, litre a budova sa nastavujú zvlášť pre každé zariadenie.</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- NASTAVENIA ZARIADENIA -->
+        <section id="section-settings-device" class="section">
+            <div class="card">
+                <h1 class="page-title">🔧 Nastavenia zariadenia</h1>
+                <p class="page-subtitle" id="deviceSettingsSubtitle">Upravuješ zariadenie: -</p>
+
+                <div class="settings-grid">
+                    <div>
+                        <div class="field-group">
+                            <label for="cfg-device-name">Názov zariadenia</label>
+                            <input type="text" id="cfg-device-name">
+                        </div>
+
+                        <div class="field-group">
+                            <label for="cfg-device-building">Budova</label>
+                            <input type="text" id="cfg-device-building" placeholder="napr. Hlavná budova">
+                        </div>
+
+                        <div class="field-group">
+                            <label for="cfg-device-male">Malé spláchnutie (L)</label>
+                            <input type="number" id="cfg-device-male" step="0.1" min="0.1">
+                        </div>
+
+                        <div class="field-group">
+                            <label for="cfg-device-velke">Veľké spláchnutie (L)</label>
+                            <input type="number" id="cfg-device-velke" step="0.1" min="0.1">
+                        </div>
+
+                        <div class="field-group">
+                            <label for="cfg-device-note">Poznámka</label>
+                            <textarea id="cfg-device-note" placeholder="Voliteľná poznámka"></textarea>
+                        </div>
+
+                        <div class="inline-actions">
+                            <button class="btn-primary" id="saveDeviceSettingsBtn">Uložiť nastavenia</button>
+                            <button class="btn-secondary" id="backToDeviceDetailBtn">Späť na detail</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="field-group">
+                            <label>Aktuálny stav batérie</label>
+                            <input type="text" id="cfg-device-battery" readonly>
+                        </div>
+
+                        <div class="field-group">
+                            <label>Posledná aktivita</label>
+                            <input type="text" id="cfg-device-lastseen" readonly>
+                        </div>
+
+                        <div class="field-group">
+                            <label>Počet záznamov</label>
+                            <input type="text" id="cfg-device-rowcount" readonly>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
     </main>
 
     <div id="toast">Uložené</div>
 
-    <script>
-        const SHEET_ID = "10SkH1lLlO-pF1v_WwDpeD_XJLNLAoFEglbJS7TIZY5A";
-        const SHEET_GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
-
-        let currentTheme = localStorage.getItem('theme') || 'light';
-        let isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
-        let devicesMenuOpen = localStorage.getItem('devicesMenuOpen') !== 'false';
-        let globalQuickFilter = localStorage.getItem('globalQuickFilter') || '7';
-
-        let allFetchedRows = [];
-        let devices = [];
-        let selectedDeviceId = localStorage.getItem('selectedDeviceId') || null;
-        let currentFilteredRows = [];
-        let chart = null;
-
-        const edgeLinePlugin = {
-            id: 'edgeLine',
-            afterDraw(chart) {
-                const avgValue = chart.options.plugins.edgeLine?.avgValue;
-                if (avgValue === undefined || avgValue === null || avgValue === 0) return;
-
-                const { ctx, chartArea, scales } = chart;
-                if (!chartArea || !scales?.y) return;
-
-                const yPos = scales.y.getPixelForValue(avgValue);
-                ctx.save();
-                ctx.beginPath();
-                ctx.strokeStyle = '#ef4444';
-                ctx.lineWidth = 2;
-                ctx.setLineDash([6, 4]);
-                ctx.moveTo(chartArea.left, yPos);
-                ctx.lineTo(chartArea.right, yPos);
-                ctx.stroke();
-                ctx.restore();
-            }
-        };
-
-        if (isCollapsed) document.body.classList.add('collapsed');
-        document.body.setAttribute('data-theme', currentTheme);
-
-        function showToast(message, success = true) {
-            const toast = document.getElementById("toast");
-            toast.textContent = message;
-            toast.style.backgroundColor = success ? 'var(--color-success)' : 'var(--color-danger)';
-            toast.className = "show";
-            setTimeout(() => {
-                toast.className = toast.className.replace("show", "");
-            }, 2500);
-        }
-
-        function toggleSidebar() {
-            document.body.classList.toggle('collapsed');
-            localStorage.setItem('sidebarCollapsed', document.body.classList.contains('collapsed'));
-            setTimeout(() => {
-                if (chart) chart.resize();
-            }, 300);
-        }
-
-        function clearActiveMenu() {
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.submenu-btn').forEach(b => b.classList.remove('active'));
-        }
-
-        function setRootMenuActive(rootId) {
-            clearActiveMenu();
-            const el = document.getElementById(rootId);
-            if (el) el.classList.add('active');
-        }
-
-        function showSection(sectionId) {
-            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-            const target = document.getElementById(sectionId);
-            if (target) target.classList.add('active');
-        }
-
-        function getDeviceSettingsMap() {
-            try {
-                return JSON.parse(localStorage.getItem('deviceSettings') || '{}');
-            } catch {
-                return {};
-            }
-        }
-
-        function saveDeviceSettingsMap(map) {
-            localStorage.setItem('deviceSettings', JSON.stringify(map));
-        }
-
-        function getDeviceConfig(deviceId) {
-            const map = getDeviceSettingsMap();
-            const cfg = map[deviceId] || {};
-            return {
-                name: cfg.name || deviceId,
-                objemMale: Number(cfg.objemMale) > 0 ? Number(cfg.objemMale) : 3,
-                objemVelke: Number(cfg.objemVelke) > 0 ? Number(cfg.objemVelke) : 6,
-                building: cfg.building || '',
-                note: cfg.note || ''
-            };
-        }
-
-        function saveDeviceConfig(deviceId, config) {
-            const map = getDeviceSettingsMap();
-            map[deviceId] = {
-                ...(map[deviceId] || {}),
-                ...config
-            };
-            saveDeviceSettingsMap(map);
-        }
-
-        function parseGViz(text) {
-            const jsonText = text.replace(/^[\s\S]*?setResponse\(|\);?\s*$/g, '');
-            return JSON.parse(jsonText);
-        }
-
-        function normalizeType(type) {
-            type = String(type || '').toLowerCase().trim();
-            return type.includes("mal") || type === "m" ? "male" : "velke";
-        }
-
-        function parseInputDate(str) {
-            const parts = str.split('-');
-            if (parts.length !== 3) return null;
-            const d = new Date(parts[0], parts[1] - 1, parts[2]);
-            return isNaN(d) ? null : d;
-        }
-
-        function parseDateSafe(value) {
-            if (!value) return null;
-
-            if (value instanceof Date) {
-                const copy = new Date(value);
-                copy.setHours(0, 0, 0, 0);
-                return isNaN(copy) ? null : copy;
-            }
-
-            if (typeof value === 'string' && value.startsWith('Date(')) {
-                const nums = value.match(/\d+/g);
-                if (!nums || nums.length < 3) return null;
-                const parsed = new Date(Number(nums[0]), Number(nums[1]), Number(nums[2]));
-                parsed.setHours(0, 0, 0, 0);
-                return isNaN(parsed) ? null : parsed;
-            }
-
-            const parsed = new Date(value);
-            if (isNaN(parsed)) return null;
-            parsed.setHours(0, 0, 0, 0);
-            return parsed;
-        }
-
-        function formatDateSK(dateValue) {
-            const d = parseDateSafe(dateValue);
-            return d ? d.toLocaleDateString('sk-SK').replace(/\s/g, '') : '';
-        }
-
-        function formatDateTimeSK(dateValue, timeValue = '') {
-            const datePart = formatDateSK(dateValue);
-            return [datePart, timeValue].filter(Boolean).join(' ');
-        }
-
-        function voltageToPercent(voltage) {
-            if (voltage == null || isNaN(voltage)) return null;
-            const min = 3.0;
-            const max = 4.2;
-            const percent = ((voltage - min) / (max - min)) * 100;
-            return Math.max(0, Math.min(100, Math.round(percent)));
-        }
-
-        function getBatteryClass(percent) {
-            if (percent == null) return 'fill-low';
-            if (percent >= 60) return 'fill-good';
-            if (percent >= 25) return 'fill-mid';
-            return 'fill-low';
-        }
-
-        function compareRows(a, b) {
-            const da = parseDateSafe(a.date);
-            const db = parseDateSafe(b.date);
-
-            if (da && db) {
-                const dateDiff = da - db;
-                if (dateDiff !== 0) return dateDiff;
-            }
-
-            const ta = String(a.time || '');
-            const tb = String(b.time || '');
-            return ta.localeCompare(tb);
-        }
-
-        function buildDevices(rows) {
-            const grouped = {};
-
-            rows.forEach(row => {
-                const id = String(row.deviceId || 'nezname-zariadenie').trim();
-                if (!grouped[id]) grouped[id] = [];
-                grouped[id].push(row);
-            });
-
-            Object.values(grouped).forEach(list => list.sort(compareRows));
-
-            return Object.keys(grouped).sort().map(id => {
-                const deviceRows = grouped[id];
-                const cfg = getDeviceConfig(id);
-
-                let maleCount = 0;
-                let velkeCount = 0;
-                let totalLiters = 0;
-
-                deviceRows.forEach(r => {
-                    const type = normalizeType(r.type);
-                    if (type === 'male') {
-                        maleCount++;
-                        totalLiters += cfg.objemMale;
-                    } else {
-                        velkeCount++;
-                        totalLiters += cfg.objemVelke;
-                    }
-                });
-
-                const latestRow = deviceRows[deviceRows.length - 1] || null;
-                const latestBattery = latestRow?.battery ?? null;
-                const batteryPercent = voltageToPercent(latestBattery);
-
-                return {
-                    id,
-                    name: cfg.name || id,
-                    building: cfg.building || '',
-                    note: cfg.note || '',
-                    objemMale: cfg.objemMale,
-                    objemVelke: cfg.objemVelke,
-                    rows: deviceRows,
-                    latestBattery,
-                    batteryPercent,
-                    lastSeenDate: latestRow?.date || null,
-                    lastSeenTime: latestRow?.time || '',
-                    stats: {
-                        male: maleCount,
-                        velke: velkeCount,
-                        total: maleCount + velkeCount,
-                        liters: totalLiters
-                    }
-                };
-            });
-        }
-
-        function renderDeviceSubmenu() {
-            const submenu = document.getElementById('deviceSubmenu');
-            submenu.classList.toggle('hidden', !devicesMenuOpen);
-            submenu.innerHTML = '';
-
-            devices.forEach(device => {
-                const btn = document.createElement('button');
-                btn.className = 'submenu-btn';
-                btn.dataset.deviceId = device.id;
-                btn.innerHTML = `
-                    ${escapeHtml(device.name)}
-                    <span class="submenu-meta">${escapeHtml(device.id)}</span>
-                `;
-                btn.onclick = () => showDeviceDetail(device.id);
-                submenu.appendChild(btn);
-            });
-        }
-
-        function updateSubmenuActive(deviceId) {
-            document.querySelectorAll('.submenu-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.deviceId === deviceId);
-            });
-        }
-
-        function toggleDevicesMenu() {
-            devicesMenuOpen = !devicesMenuOpen;
-            localStorage.setItem('devicesMenuOpen', String(devicesMenuOpen));
-            renderDeviceSubmenu();
-            showDevicesList();
-        }
-
-        function escapeHtml(text) {
-            return String(text ?? '')
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-        }
-
-        function showDevicesList() {
-            setRootMenuActive('menu-devices-root');
-            showSection('section-devices-list');
-            renderDevicesListSection();
-            updateSubmenuActive('');
-        }
-
-        function renderDevicesListSection() {
-            const section = document.getElementById('section-devices-list');
-
-            const totalFlushes = devices.reduce((sum, d) => sum + d.stats.total, 0);
-            const totalLiters = devices.reduce((sum, d) => sum + d.stats.liters, 0);
-
-            section.innerHTML = `
-                <div class="card">
-                    <h1 class="page-title">📟 Moje zariadenia</h1>
-                    <p class="page-subtitle">Prehľad všetkých monitorovacích zariadení a ich základných štatistík.</p>
-
-                    <div class="stats">
-                        <div class="stat">
-                            <div class="label">Počet zariadení</div>
-                            <div class="value">${devices.length}</div>
-                        </div>
-                        <div class="stat">
-                            <div class="label">Celkom spláchnutí</div>
-                            <div class="value">${totalFlushes}</div>
-                        </div>
-                        <div class="stat">
-                            <div class="label">Celková spotreba</div>
-                            <div class="value">${totalLiters.toFixed(0)} L</div>
-                        </div>
-                    </div>
-
-                    <div id="devicesGrid" class="devices-grid"></div>
-                </div>
-            `;
-
-            const grid = document.getElementById('devicesGrid');
-
-            if (!devices.length) {
-                grid.innerHTML = `<div class="empty-state">Zatiaľ neboli načítané žiadne zariadenia.</div>`;
-                return;
-            }
-
-            devices.forEach(device => {
-                const batteryPercent = device.batteryPercent;
-                const batteryVoltage = device.latestBattery != null ? `${Number(device.latestBattery).toFixed(2)} V` : '—';
-                const buildingLine = device.building ? `<div class="muted" style="margin-bottom:8px;">Budova: ${escapeHtml(device.building)}</div>` : '';
-                const lastSeen = device.lastSeenDate ? formatDateTimeSK(device.lastSeenDate, device.lastSeenTime) : '—';
-
-                const card = document.createElement('div');
-                card.className = 'device-card';
-                card.innerHTML = `
-                    <h3>${escapeHtml(device.name)}</h3>
-                    <div class="device-id">ID: ${escapeHtml(device.id)}</div>
-                    ${buildingLine}
-
-                    <div class="device-metrics">
-                        <div class="device-metric-line">
-                            <span>Batéria</span>
-                            <span>${batteryVoltage}${batteryPercent != null ? ` (${batteryPercent}%)` : ''}</span>
-                        </div>
-
-                        <div class="battery-wrap">
-                            <div class="battery-bar">
-                                <div class="battery-fill ${getBatteryClass(batteryPercent)}" style="width:${batteryPercent ?? 0}%"></div>
-                            </div>
-                        </div>
-
-                        <div class="device-metric-line">
-                            <span>Posledná aktivita</span>
-                            <span>${escapeHtml(lastSeen)}</span>
-                        </div>
-
-                        <div class="device-metric-line">
-                            <span>Malé spláchnutia</span>
-                            <span>${device.stats.male}</span>
-                        </div>
-
-                        <div class="device-metric-line">
-                            <span>Veľké spláchnutia</span>
-                            <span>${device.stats.velke}</span>
-                        </div>
-
-                        <div class="device-metric-line">
-                            <span>Spotreba</span>
-                            <span>${device.stats.liters.toFixed(0)} L</span>
-                        </div>
-                    </div>
-
-                    <div class="inline-actions">
-                        <button class="btn-primary" onclick="showDeviceDetail('${escapeHtml(device.id)}')">Otvoriť detail</button>
-                        <button class="btn-secondary" onclick="showDeviceSettings('${escapeHtml(device.id)}')">Nastavenia</button>
-                    </div>
-                `;
-                grid.appendChild(card);
-            });
-        }
-
-        function ensureSelectedDevice() {
-            if (!devices.length) {
-                selectedDeviceId = null;
-                localStorage.removeItem('selectedDeviceId');
-                return null;
-            }
-
-            const exists = devices.some(d => d.id === selectedDeviceId);
-            if (!selectedDeviceId || !exists) {
-                selectedDeviceId = devices[0].id;
-                localStorage.setItem('selectedDeviceId', selectedDeviceId);
-            }
-            return selectedDeviceId;
-        }
-
-        function getSelectedDevice() {
-            return devices.find(d => d.id === selectedDeviceId) || null;
-        }
-
-        function getDeviceFilterKey(deviceId) {
-            return `deviceFilter_${deviceId}`;
-        }
-
-        function saveDeviceFilter(deviceId, data) {
-            localStorage.setItem(getDeviceFilterKey(deviceId), JSON.stringify(data));
-        }
-
-        function loadDeviceFilter(deviceId) {
-            try {
-                return JSON.parse(localStorage.getItem(getDeviceFilterKey(deviceId)) || 'null');
-            } catch {
-                return null;
-            }
-        }
-
-        function setQuickFilter(days, btn) {
-            const device = getSelectedDevice();
-            if (!device) return;
-
-            document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
-            if (btn) btn.classList.add('active');
-
-            globalQuickFilter = String(days);
-            localStorage.setItem('globalQuickFilter', globalQuickFilter);
-
-            const end = new Date();
-            const start = new Date();
-            start.setDate(end.getDate() - (days - 1));
-
-            const from = start.toLocaleDateString('sv-SE');
-            const to = end.toLocaleDateString('sv-SE');
-
-            document.getElementById('dateFrom').value = from;
-            document.getElementById('dateTo').value = to;
-
-            saveDeviceFilter(device.id, {
-                type: 'quick',
-                quickDays: String(days),
-                dateFrom: from,
-                dateTo: to
-            });
-
-            applyDateFilter(true);
-        }
-
-        function applyDateFilter(isQuick = false) {
-            const device = getSelectedDevice();
-            if (!device) return;
-
-            if (!isQuick) {
-                document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
-            }
-
-            const fv = document.getElementById('dateFrom').value;
-            const tv = document.getElementById('dateTo').value;
-
-            const fromDate = fv ? parseInputDate(fv) : new Date(2000, 0, 1);
-            const toDate = tv ? parseInputDate(tv) : new Date();
-
-            if (!fromDate || !toDate) {
-                showToast('Neplatný rozsah dátumov', false);
-                return;
-            }
-
-            fromDate.setHours(0, 0, 0, 0);
-            toDate.setHours(23, 59, 59, 999);
-
-            const filtered = device.rows.filter(r => {
-                const d = parseDateSafe(r.date);
-                return d && d >= fromDate && d <= toDate;
-            });
-
-            currentFilteredRows = filtered;
-            populateDeviceDetail(filtered);
-
-            saveDeviceFilter(device.id, {
-                type: isQuick ? 'quick' : 'custom',
-                quickDays: isQuick ? globalQuickFilter : null,
-                dateFrom: fv,
-                dateTo: tv
-            });
-        }
-
-        function aggregateByDate(rows, startVal, endVal, deviceConfig) {
-            const agg = {};
-            if (!startVal || !endVal) return { labels: [], male: [], velke: [] };
-
-            let start = parseInputDate(startVal);
-            let end = parseInputDate(endVal);
-            if (!start || !end) return { labels: [], male: [], velke: [] };
-
-            start.setHours(0,0,0,0);
-            end.setHours(0,0,0,0);
-
-            let curr = new Date(start);
-            while (curr <= end) {
-                const y = curr.getFullYear();
-                const m = String(curr.getMonth() + 1).padStart(2, '0');
-                const d = String(curr.getDate()).padStart(2, '0');
-                agg[`${y}-${m}-${d}`] = { male: 0, velke: 0 };
-                curr.setDate(curr.getDate() + 1);
-            }
-
-            rows.forEach(r => {
-                const d = parseDateSafe(r.date);
-                if (!d) return;
-                const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-                if (!agg[key]) return;
-                agg[key][normalizeType(r.type)]++;
-            });
-
-            const keys = Object.keys(agg).sort();
-            return {
-                labels: keys,
-                male: keys.map(k => agg[k].male * deviceConfig.objemMale),
-                velke: keys.map(k => agg[k].velke * deviceConfig.objemVelke)
-            };
-        }
-
-        function showDeviceDetail(deviceId) {
-            selectedDeviceId = deviceId;
-            localStorage.setItem('selectedDeviceId', selectedDeviceId);
-
-            setRootMenuActive('menu-devices-root');
-            showSection('section-device-detail');
-            updateSubmenuActive(deviceId);
-            renderDeviceDetailSection();
-
-            const savedFilter = loadDeviceFilter(deviceId);
-            const quickValue = savedFilter?.quickDays || globalQuickFilter || '7';
-
-            document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
-
-            if (savedFilter?.dateFrom) {
-                document.getElementById('dateFrom').value = savedFilter.dateFrom;
-            } else {
-                document.getElementById('dateFrom').value = '';
-            }
-
-            if (savedFilter?.dateTo) {
-                document.getElementById('dateTo').value = savedFilter.dateTo;
-            } else {
-                document.getElementById('dateTo').value = '';
-            }
-
-            if (savedFilter?.type === 'quick') {
-                const btn = document.querySelector(`.btn-filter[data-days="${quickValue}"]`);
-                if (btn) {
-                    setQuickFilter(Number(quickValue), btn);
-                    return;
-                }
-            }
-
-            if (savedFilter?.dateFrom && savedFilter?.dateTo) {
-                applyDateFilter(false);
-                return;
-            }
-
-            const btn = document.querySelector(`.btn-filter[data-days="${globalQuickFilter}"]`) ||
-                        document.querySelector(`.btn-filter[data-days="7"]`);
-            if (btn) setQuickFilter(Number(btn.dataset.days), btn);
-        }
-
-        function renderDeviceDetailSection() {
-            const section = document.getElementById('section-device-detail');
-            const device = getSelectedDevice();
-
-            if (!device) {
-                section.innerHTML = `<div class="card"><div class="empty-state">Nie je vybrané žiadne zariadenie.</div></div>`;
-                return;
-            }
-
-            const batteryText = device.latestBattery != null
-                ? `${Number(device.latestBattery).toFixed(2)} V${device.batteryPercent != null ? ` (${device.batteryPercent}%)` : ''}`
-                : '—';
-
-            section.innerHTML = `
-                <div class="card">
-                    <div class="header-actions">
-                        <div>
-                            <h1 class="page-title">${escapeHtml(device.name)}</h1>
-                            <p class="page-subtitle">
-                                ID: ${escapeHtml(device.id)}
-                                ${device.building ? ` · Budova: ${escapeHtml(device.building)}` : ''}
-                            </p>
-                        </div>
-                        <div class="inline-actions">
-                            <button class="btn-secondary" onclick="showDevicesList()">← Späť na zariadenia</button>
-                            <button class="btn-primary" onclick="showDeviceSettings('${escapeHtml(device.id)}')">Nastavenia zariadenia</button>
-                        </div>
-                    </div>
-
-                    <div class="stats" style="margin-top:20px;">
-                        <div class="stat">
-                            <div class="label">Batéria</div>
-                            <div class="value" style="font-size:1.25rem;">${batteryText}</div>
-                        </div>
-                        <div class="stat">
-                            <div class="label">Posledná aktivita</div>
-                            <div class="value" style="font-size:1.05rem;">${device.lastSeenDate ? formatDateTimeSK(device.lastSeenDate, device.lastSeenTime) : '—'}</div>
-                        </div>
-                        <div class="stat">
-                            <div class="label">Malé / Veľké litre</div>
-                            <div class="value" style="font-size:1.1rem;">${device.objemMale} / ${device.objemVelke} L</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <div class="filter-row">
-                        <div class="quick-actions">
-                            <button class="btn-filter" data-days="7" onclick="setQuickFilter(7, this)">1 týždeň</button>
-                            <button class="btn-filter" data-days="14" onclick="setQuickFilter(14, this)">2 týždne</button>
-                            <button class="btn-filter" data-days="30" onclick="setQuickFilter(30, this)">Mesiac</button>
-                            <button class="btn-filter" data-days="90" onclick="setQuickFilter(90, this)">3 mesiace</button>
-                        </div>
-                    </div>
-
-                    <div class="divider"></div>
-
-                    <div class="filter-row">
-                        <div class="date-inputs">
-                            <label>Od: <input type="date" id="dateFrom"></label>
-                            <label>Do: <input type="date" id="dateTo"></label>
-                        </div>
-                        <button class="btn-primary" onclick="applyDateFilter()">Použiť filter</button>
-                    </div>
-                </div>
-
-                <div class="stats">
-                    <div class="stat"><div class="label" id="label-male">Malé (${device.objemMale}L)</div><div id="countMale" class="value">0</div></div>
-                    <div class="stat"><div class="label" id="label-velke">Veľké (${device.objemVelke}L)</div><div id="countVelke" class="value">0</div></div>
-                    <div class="stat"><div class="label">Celkom</div><div id="countTotal" class="value">0</div></div>
-                    <div class="stat"><div class="label">Spotreba</div><div id="totalLiters" class="value">0 L</div></div>
-                    <div class="stat avg"><div class="label">Priemer/deň</div><div id="avgLiters" class="value">0 L</div></div>
-                </div>
-
-                <div class="card">
-                    <h3 style="margin-top:0">Graf spotreby</h3>
-                    <div style="height:300px;"><canvas id="chart"></canvas></div>
-                </div>
-
-                <div class="card">
-                    <h3 style="margin-top:0">Posledné záznamy</h3>
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Dátum</th>
-                                    <th>Čas</th>
-                                    <th>Typ</th>
-                                    <th>L</th>
-                                    <th>Batéria</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tableBody"></tbody>
-                        </table>
-                    </div>
-                </div>
-            `;
-        }
-
-        function populateDeviceDetail(rows) {
-            const device = getSelectedDevice();
-            if (!device) return;
-
-            const tbody = document.getElementById('tableBody');
-            if (!tbody) return;
-
-            const isDark = document.body.getAttribute('data-theme') === 'dark';
-            const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
-            const textColor = isDark ? '#9ca3af' : '#6b7280';
-
-            tbody.innerHTML = '';
-
-            let cM = 0;
-            let cV = 0;
-            let litTotal = 0;
-
-            rows.slice().reverse().forEach((r, idx) => {
-                const type = normalizeType(r.type);
-                const lit = type === 'male' ? device.objemMale : device.objemVelke;
-
-                if (idx < 150) {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${formatDateSK(r.date)}</td>
-                        <td>${escapeHtml(r.time || '')}</td>
-                        <td>${type === 'male' ? 'M' : 'V'}</td>
-                        <td>${lit}</td>
-                        <td>${r.battery != null && !isNaN(r.battery) ? Number(r.battery).toFixed(2) + ' V' : '—'}</td>
-                    `;
-                    tbody.appendChild(tr);
-                }
-
-                if (type === 'male') cM++;
-                else cV++;
-
-                litTotal += lit;
-            });
-
-            const countMaleEl = document.getElementById('countMale');
-            const countVelkeEl = document.getElementById('countVelke');
-            const countTotalEl = document.getElementById('countTotal');
-            const totalLitersEl = document.getElementById('totalLiters');
-            const avgLitersEl = document.getElementById('avgLiters');
-
-            if (countMaleEl) countMaleEl.textContent = cM;
-            if (countVelkeEl) countVelkeEl.textContent = cV;
-            if (countTotalEl) countTotalEl.textContent = cM + cV;
-            if (totalLitersEl) totalLitersEl.textContent = litTotal.toFixed(0) + ' L';
-
-            const dateFrom = document.getElementById('dateFrom')?.value || '';
-            const dateTo = document.getElementById('dateTo')?.value || '';
-            const agg = aggregateByDate(rows, dateFrom, dateTo, device);
-
-            const dailyTotals = agg.male.map((val, i) => val + agg.velke[i]);
-            const daysCount = agg.labels.length || 1;
-            const avg = litTotal / daysCount;
-
-            if (avgLitersEl) avgLitersEl.textContent = avg.toFixed(1) + ' L';
-
-            const maxVal = Math.max(...dailyTotals, avg, 5);
-            const chartMax = Math.ceil((maxVal * 1.2) / 5) * 5;
-
-            const canvas = document.getElementById('chart');
-            if (!canvas) return;
-
-            const ctx = canvas.getContext('2d');
-            if (chart) chart.destroy();
-
-            chart = new Chart(ctx, {
-                plugins: [edgeLinePlugin],
-                data: {
-                    labels: agg.labels.map(l => l.split('-').slice(1).reverse().join('.')),
-                    datasets: [
-                        {
-                            type: 'bar',
-                            label: 'Malé',
-                            data: agg.male,
-                            backgroundColor: '#2563eb',
-                            borderRadius: 3
-                        },
-                        {
-                            type: 'bar',
-                            label: 'Veľké',
-                            data: agg.velke,
-                            backgroundColor: '#93c5fd',
-                            borderRadius: 3
-                        },
-                        {
-                            type: 'line',
-                            label: 'Priemer',
-                            data: [],
-                            borderColor: '#ef4444',
-                            borderDash: [5, 5]
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: {
-                                boxWidth: 12,
-                                color: textColor,
-                                font: { size: 11 }
-                            }
-                        },
-                        edgeLine: {
-                            avgValue: avg
-                        }
-                    },
-                    scales: {
-                        x: {
-                            stacked: true,
-                            grid: { display: false },
-                            ticks: {
-                                color: textColor,
-                                font: { size: 10 }
-                            }
-                        },
-                        y: {
-                            stacked: true,
-                            beginAtZero: true,
-                            max: chartMax,
-                            grid: { color: gridColor },
-                            ticks: {
-                                color: textColor,
-                                font: { size: 10 }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        function showGlobalSettings() {
-            setRootMenuActive('menu-settings-global');
-            showSection('section-settings-global');
-
-            const section = document.getElementById('section-settings-global');
-            section.innerHTML = `
-                <div class="card">
-                    <h1 class="page-title">⚙️ Globálne nastavenia</h1>
-                    <p class="page-subtitle">Nastavenia pre celú stránku.</p>
-
-                    <div class="settings-grid">
-                        <div>
-                            <div class="field-group">
-                                <label>Téma</label>
-                                <div class="inline-actions">
-                                    <button class="btn-primary" onclick="toggleTheme()">Prepnúť tmavý / svetlý režim</button>
-                                </div>
-                            </div>
-
-                            <div class="field-group">
-                                <label>Predvolený rýchly filter</label>
-                                <select id="globalQuickFilterInput">
-                                    <option value="7">1 týždeň</option>
-                                    <option value="14">2 týždne</option>
-                                    <option value="30">Mesiac</option>
-                                    <option value="90">3 mesiace</option>
-                                </select>
-                            </div>
-
-                            <div class="field-group">
-                                <label>Google Sheets ID</label>
-                                <input type="text" value="${escapeHtml(SHEET_ID)}" readonly>
-                            </div>
-
-                            <button class="btn-primary" onclick="saveGlobalSettings()">Uložiť globálne nastavenia</button>
-                        </div>
-
-                        <div>
-                            <div class="field-group">
-                                <label>Info</label>
-                                <textarea readonly>Globálne nastavenia ovplyvňujú celú aplikáciu. Názov zariadenia, litre a budova sa nastavujú zvlášť pre každé zariadenie.</textarea>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            const input = document.getElementById('globalQuickFilterInput');
-            if (input) input.value = globalQuickFilter;
-        }
-
-        function saveGlobalSettings() {
-            const value = document.getElementById('globalQuickFilterInput')?.value || '7';
-            globalQuickFilter = value;
-            localStorage.setItem('globalQuickFilter', globalQuickFilter);
-            showToast('Globálne nastavenia uložené ✅');
-        }
-
-        function showDeviceSettings(deviceId = null) {
-            if (deviceId) {
-                selectedDeviceId = deviceId;
-                localStorage.setItem('selectedDeviceId', selectedDeviceId);
-            } else {
-                ensureSelectedDevice();
-            }
-
-            const device = getSelectedDevice();
-            setRootMenuActive('menu-settings-device');
-            showSection('section-settings-device');
-
-            const section = document.getElementById('section-settings-device');
-
-            if (!device) {
-                section.innerHTML = `
-                    <div class="card">
-                        <div class="empty-state">Nie je k dispozícii žiadne zariadenie na nastavenie.</div>
-                    </div>
-                `;
-                return;
-            }
-
-            section.innerHTML = `
-                <div class="card">
-                    <h1 class="page-title">🔧 Nastavenia zariadenia</h1>
-                    <p class="page-subtitle">Upravuješ zariadenie: <strong>${escapeHtml(device.name)}</strong> (${escapeHtml(device.id)})</p>
-
-                    <div class="settings-grid">
-                        <div>
-                            <div class="field-group">
-                                <label for="cfg-device-name">Názov zariadenia</label>
-                                <input type="text" id="cfg-device-name" value="${escapeHtml(device.name)}">
-                            </div>
-
-                            <div class="field-group">
-                                <label for="cfg-device-building">Budova</label>
-                                <input type="text" id="cfg-device-building" value="${escapeHtml(device.building || '')}" placeholder="napr. Hlavná budova">
-                            </div>
-
-                            <div class="field-group">
-                                <label for="cfg-device-male">Malé spláchnutie (L)</label>
-                                <input type="number" id="cfg-device-male" step="0.1" min="0.1" value="${device.objemMale}">
-                            </div>
-
-                            <div class="field-group">
-                                <label for="cfg-device-velke">Veľké spláchnutie (L)</label>
-                                <input type="number" id="cfg-device-velke" step="0.1" min="0.1" value="${device.objemVelke}">
-                            </div>
-
-                            <div class="field-group">
-                                <label for="cfg-device-note">Poznámka</label>
-                                <textarea id="cfg-device-note" placeholder="Voliteľná poznámka">${escapeHtml(device.note || '')}</textarea>
-                            </div>
-
-                            <div class="inline-actions">
-                                <button class="btn-primary" onclick="saveCurrentDeviceSettings()">Uložiť nastavenia</button>
-                                <button class="btn-secondary" onclick="showDeviceDetail('${escapeHtml(device.id)}')">Späť na detail</button>
-                            </div>
-                        </div>
-
-                        <div>
-                            <div class="field-group">
-                                <label>Aktuálny stav batérie</label>
-                                <input type="text" readonly value="${device.latestBattery != null ? `${Number(device.latestBattery).toFixed(2)} V${device.batteryPercent != null ? ` (${device.batteryPercent}%)` : ''}` : '—'}">
-                            </div>
-
-                            <div class="field-group">
-                                <label>Posledná aktivita</label>
-                                <input type="text" readonly value="${device.lastSeenDate ? formatDateTimeSK(device.lastSeenDate, device.lastSeenTime) : '—'}">
-                            </div>
-
-                            <div class="field-group">
-                                <label>Počet záznamov</label>
-                                <input type="text" readonly value="${device.rows.length}">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        function saveCurrentDeviceSettings() {
-            const device = getSelectedDevice();
-            if (!device) return;
-
-            const name = document.getElementById('cfg-device-name')?.value.trim() || device.id;
-            const building = document.getElementById('cfg-device-building')?.value.trim() || '';
-            const note = document.getElementById('cfg-device-note')?.value.trim() || '';
-            const objemMale = parseFloat(document.getElementById('cfg-device-male')?.value);
-            const objemVelke = parseFloat(document.getElementById('cfg-device-velke')?.value);
-
-            if (isNaN(objemMale) || objemMale <= 0 || isNaN(objemVelke) || objemVelke <= 0) {
-                showToast('Zadaj platné litre pre malé aj veľké spláchnutie.', false);
-                return;
-            }
-
-            saveDeviceConfig(device.id, {
-                name,
-                building,
-                note,
-                objemMale,
-                objemVelke
-            });
-
-            devices = buildDevices(allFetchedRows);
-            renderDeviceSubmenu();
-            updateSubmenuActive(device.id);
-            showToast('Nastavenia zariadenia uložené ✅');
-            showDeviceDetail(device.id);
-        }
-
-        function toggleTheme() {
-            currentTheme = currentTheme === 'light' ? 'dark' : 'light';
-            document.body.setAttribute('data-theme', currentTheme);
-            localStorage.setItem('theme', currentTheme);
-
-            const activeSection = document.querySelector('.section.active')?.id;
-            if (activeSection === 'section-device-detail') {
-                populateDeviceDetail(currentFilteredRows);
-            }
-        }
-
-        async function updateAll() {
-            const container = document.getElementById('lastUpdateContainer');
-            container.classList.add('loading');
-
-            try {
-                const resp = await fetch(SHEET_GVIZ_URL);
-                const gv = parseGViz(await resp.text());
-
-                allFetchedRows = (gv.table.rows || []).map(r => ({
-                    date: r.c[0]?.v || null,
-                    time: r.c[1]?.v || '',
-                    type: r.c[2]?.v || '',
-                    deviceId: String(r.c[3]?.v || 'nezname-zariadenie'),
-                    battery: r.c[4]?.v != null && r.c[4]?.v !== '' ? parseFloat(r.c[4]?.v) : null
-                }));
-
-                allFetchedRows.sort(compareRows);
-
-                devices = buildDevices(allFetchedRows);
-                ensureSelectedDevice();
-                renderDeviceSubmenu();
-
-                const activeSection = document.querySelector('.section.active')?.id;
-
-                if (activeSection === 'section-settings-global') {
-                    showGlobalSettings();
-                } else if (activeSection === 'section-settings-device') {
-                    showDeviceSettings(selectedDeviceId);
-                } else if (activeSection === 'section-device-detail' && selectedDeviceId) {
-                    showDeviceDetail(selectedDeviceId);
-                } else {
-                    showDevicesList();
-                }
-
-                document.getElementById('lastUpdate').textContent =
-                    `Aktuálne: ${new Date().toLocaleString('sk-SK')}`;
-            } catch (err) {
-                console.error(err);
-                document.getElementById('lastUpdate').textContent = "Chyba načítania";
-                showToast('Nepodarilo sa načítať dáta zo Sheets.', false);
-            } finally {
-                container.classList.remove('loading');
-            }
-        }
-
-        updateAll();
-        setInterval(updateAll, 60000);
-    </script>
+    <script src="app.js"></script>
 </body>
 </html>
