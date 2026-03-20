@@ -28,7 +28,7 @@ const edgeLinePlugin = {
         const yPos = scales.y.getPixelForValue(avgValue);
         ctx.save();
         ctx.beginPath();
-        ctx.strokeStyle = '#ef4444';
+        ctx.strokeStyle = '#dc2626';
         ctx.lineWidth = 2;
         ctx.setLineDash([6, 4]);
         ctx.moveTo(chartArea.left, yPos);
@@ -60,42 +60,27 @@ function initializeUI() {
 }
 
 function bindEvents() {
-    const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
-    if (toggleSidebarBtn) toggleSidebarBtn.addEventListener('click', toggleSidebar);
+    document.getElementById('toggleSidebarBtn')?.addEventListener('click', toggleSidebar);
+    document.getElementById('menu-devices-root')?.addEventListener('click', toggleDevicesMenu);
+    document.getElementById('menu-settings-global')?.addEventListener('click', showGlobalSettings);
+    document.getElementById('menu-settings-device')?.addEventListener('click', () => showDeviceSettings());
+    document.getElementById('backToDevicesBtn')?.addEventListener('click', showDevicesList);
+    document.getElementById('openDeviceSettingsBtn')?.addEventListener('click', () => showDeviceSettings(selectedDeviceId));
+    document.getElementById('applyDateFilterBtn')?.addEventListener('click', () => applyDateFilter(false));
+    document.getElementById('toggleThemeBtn')?.addEventListener('click', toggleTheme);
+    document.getElementById('saveGlobalSettingsBtn')?.addEventListener('click', saveGlobalSettings);
+    document.getElementById('saveDeviceSettingsBtn')?.addEventListener('click', saveCurrentDeviceSettings);
+    document.getElementById('backToDeviceDetailBtn')?.addEventListener('click', () => {
+        if (selectedDeviceId) showDeviceDetail(selectedDeviceId);
+    });
 
-    const menuDevicesRoot = document.getElementById('menu-devices-root');
-    if (menuDevicesRoot) menuDevicesRoot.addEventListener('click', toggleDevicesMenu);
-
-    const menuSettingsGlobal = document.getElementById('menu-settings-global');
-    if (menuSettingsGlobal) menuSettingsGlobal.addEventListener('click', showGlobalSettings);
-
-    const menuSettingsDevice = document.getElementById('menu-settings-device');
-    if (menuSettingsDevice) menuSettingsDevice.addEventListener('click', () => showDeviceSettings());
-
-    const backToDevicesBtn = document.getElementById('backToDevicesBtn');
-    if (backToDevicesBtn) backToDevicesBtn.addEventListener('click', showDevicesList);
-
-    const openDeviceSettingsBtn = document.getElementById('openDeviceSettingsBtn');
-    if (openDeviceSettingsBtn) openDeviceSettingsBtn.addEventListener('click', () => showDeviceSettings());
-
-    const applyDateFilterBtn = document.getElementById('applyDateFilterBtn');
-    if (applyDateFilterBtn) applyDateFilterBtn.addEventListener('click', () => applyDateFilter(false));
-
-    const toggleThemeBtn = document.getElementById('toggleThemeBtn');
-    if (toggleThemeBtn) toggleThemeBtn.addEventListener('click', toggleTheme);
-
-    const saveGlobalSettingsBtn = document.getElementById('saveGlobalSettingsBtn');
-    if (saveGlobalSettingsBtn) saveGlobalSettingsBtn.addEventListener('click', saveGlobalSettings);
-
-    const saveDeviceSettingsBtn = document.getElementById('saveDeviceSettingsBtn');
-    if (saveDeviceSettingsBtn) saveDeviceSettingsBtn.addEventListener('click', saveCurrentDeviceSettings);
-
-    const backToDeviceDetailBtn = document.getElementById('backToDeviceDetailBtn');
-    if (backToDeviceDetailBtn) {
-        backToDeviceDetailBtn.addEventListener('click', () => {
-            if (selectedDeviceId) showDeviceDetail(selectedDeviceId);
-        });
-    }
+    document.getElementById('settings-device-select')?.addEventListener('change', e => {
+        const deviceId = e.target.value;
+        if (!deviceId) return;
+        selectedDeviceId = deviceId;
+        localStorage.setItem('selectedDeviceId', selectedDeviceId);
+        fillCurrentDeviceSettingsForm();
+    });
 
     document.querySelectorAll('.btn-filter').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -139,8 +124,7 @@ function setRootMenuActive(rootId) {
 
 function showSection(sectionId) {
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-    const target = document.getElementById(sectionId);
-    if (target) target.classList.add('active');
+    document.getElementById(sectionId)?.classList.add('active');
 }
 
 function parseGViz(text) {
@@ -217,16 +201,40 @@ function getBatteryClass(percent) {
     return 'fill-low';
 }
 
-function compareRows(a, b) {
-    const da = parseDateSafe(a.date);
-    const db = parseDateSafe(b.date);
+function rowToDateTime(row) {
+    const date = parseDateSafe(row.date);
+    if (!date) return null;
 
-    if (da && db) {
-        const diff = da - db;
-        if (diff !== 0) return diff;
+    const result = new Date(date);
+    const parts = String(row.time || '').trim().split(':');
+
+    if (parts.length >= 2) {
+        const hours = parseInt(parts[0], 10);
+        const minutes = parseInt(parts[1], 10);
+        const seconds = parts.length >= 3 ? parseInt(parts[2], 10) : 0;
+
+        result.setHours(
+            isNaN(hours) ? 0 : hours,
+            isNaN(minutes) ? 0 : minutes,
+            isNaN(seconds) ? 0 : seconds,
+            0
+        );
+    } else {
+        result.setHours(0, 0, 0, 0);
     }
 
-    return String(a.time || '').localeCompare(String(b.time || ''));
+    return result;
+}
+
+function compareRows(a, b) {
+    const da = rowToDateTime(a);
+    const db = rowToDateTime(b);
+
+    if (!da && !db) return 0;
+    if (!da) return -1;
+    if (!db) return 1;
+
+    return da - db;
 }
 
 /* ===== DEVICES SETTINGS FROM GOOGLE SHEET ===== */
@@ -236,9 +244,7 @@ async function loadDeviceSettingsFromSheet() {
         throw new Error("Nie je nastavené SETTINGS_API_URL.");
     }
 
-    const resp = await fetch(SETTINGS_API_URL, {
-        method: 'GET'
-    });
+    const resp = await fetch(SETTINGS_API_URL, { method: 'GET' });
 
     if (!resp.ok) {
         throw new Error(`Nepodarilo sa načítať device settings. HTTP ${resp.status}`);
@@ -315,7 +321,8 @@ function buildDevices(rows) {
     const grouped = {};
 
     rows.forEach(row => {
-        const id = String(row.deviceId || 'nezname-zariadenie').trim();
+        const id = String(row.deviceId || '').trim();
+        if (!id) return;
         if (!grouped[id]) grouped[id] = [];
         grouped[id].push(row);
     });
@@ -427,6 +434,21 @@ function updateSubmenuActive(deviceId) {
     });
 }
 
+function populateDeviceSettingsSelect() {
+    const select = document.getElementById('settings-device-select');
+    if (!select) return;
+
+    select.innerHTML = '';
+
+    devices.forEach(device => {
+        const option = document.createElement('option');
+        option.value = device.id;
+        option.textContent = `${device.name} (${device.id})`;
+        if (device.id === selectedDeviceId) option.selected = true;
+        select.appendChild(option);
+    });
+}
+
 function toggleDevicesMenu() {
     devicesMenuOpen = !devicesMenuOpen;
     localStorage.setItem('devicesMenuOpen', String(devicesMenuOpen));
@@ -438,13 +460,9 @@ function renderDevicesList() {
     const totalFlushes = devices.reduce((sum, d) => sum + d.stats.total, 0);
     const totalLiters = devices.reduce((sum, d) => sum + d.stats.liters, 0);
 
-    const devicesCount = document.getElementById('devicesCount');
-    const devicesTotalFlushes = document.getElementById('devicesTotalFlushes');
-    const devicesTotalLiters = document.getElementById('devicesTotalLiters');
-
-    if (devicesCount) devicesCount.textContent = devices.length;
-    if (devicesTotalFlushes) devicesTotalFlushes.textContent = totalFlushes;
-    if (devicesTotalLiters) devicesTotalLiters.textContent = totalLiters.toFixed(0) + ' L';
+    document.getElementById('devicesCount').textContent = devices.length;
+    document.getElementById('devicesTotalFlushes').textContent = totalFlushes;
+    document.getElementById('devicesTotalLiters').textContent = totalLiters.toFixed(0) + ' L';
 
     const grid = document.getElementById('devicesGrid');
     if (!grid) return;
@@ -507,11 +525,8 @@ function renderDevicesList() {
             </div>
         `;
 
-        const openDetailBtn = card.querySelector('.open-device-btn');
-        const openSettingsBtn = card.querySelector('.open-device-settings-btn');
-
-        if (openDetailBtn) openDetailBtn.addEventListener('click', () => showDeviceDetail(device.id));
-        if (openSettingsBtn) openSettingsBtn.addEventListener('click', () => showDeviceSettings(device.id));
+        card.querySelector('.open-device-btn')?.addEventListener('click', () => showDeviceDetail(device.id));
+        card.querySelector('.open-device-settings-btn')?.addEventListener('click', () => showDeviceSettings(device.id));
 
         grid.appendChild(card);
     });
@@ -525,38 +540,21 @@ function showDevicesList() {
 }
 
 function fillDeviceDetailHeader(device) {
-    const deviceTitle = document.getElementById('deviceTitle');
-    const deviceSubtitle = document.getElementById('deviceSubtitle');
-    const deviceBatteryInfo = document.getElementById('deviceBatteryInfo');
-    const deviceLastSeen = document.getElementById('deviceLastSeen');
-    const deviceLitersInfo = document.getElementById('deviceLitersInfo');
-    const labelMale = document.getElementById('label-male');
-    const labelVelke = document.getElementById('label-velke');
+    document.getElementById('deviceTitle').textContent = device.name;
+    document.getElementById('deviceSubtitle').textContent =
+        `ID: ${device.id}${device.building ? ` · Budova: ${device.building}` : ''}`;
 
-    if (deviceTitle) deviceTitle.textContent = device.name;
-    if (deviceSubtitle) {
-        deviceSubtitle.textContent =
-            `ID: ${device.id}${device.building ? ` · Budova: ${device.building}` : ''}`;
-    }
+    document.getElementById('deviceBatteryInfo').textContent =
+        device.latestBattery != null
+            ? `${Number(device.latestBattery).toFixed(2)} V${device.batteryPercent != null ? ` (${device.batteryPercent}%)` : ''}`
+            : '—';
 
-    if (deviceBatteryInfo) {
-        deviceBatteryInfo.textContent =
-            device.latestBattery != null
-                ? `${Number(device.latestBattery).toFixed(2)} V${device.batteryPercent != null ? ` (${device.batteryPercent}%)` : ''}`
-                : '—';
-    }
+    document.getElementById('deviceLastSeen').textContent =
+        device.lastSeenDate ? formatDateTimeSK(device.lastSeenDate, device.lastSeenTime) : '—';
 
-    if (deviceLastSeen) {
-        deviceLastSeen.textContent =
-            device.lastSeenDate ? formatDateTimeSK(device.lastSeenDate, device.lastSeenTime) : '—';
-    }
-
-    if (deviceLitersInfo) {
-        deviceLitersInfo.textContent = `${device.objemMale} / ${device.objemVelke} L`;
-    }
-
-    if (labelMale) labelMale.textContent = `Malé (${device.objemMale}L)`;
-    if (labelVelke) labelVelke.textContent = `Veľké (${device.objemVelke}L)`;
+    document.getElementById('deviceLitersInfo').textContent = `${device.objemMale} / ${device.objemVelke} L`;
+    document.getElementById('label-male').textContent = `Malé (${device.objemMale}L)`;
+    document.getElementById('label-velke').textContent = `Veľké (${device.objemVelke}L)`;
 }
 
 function setQuickFilter(days, btn) {
@@ -576,11 +574,8 @@ function setQuickFilter(days, btn) {
     const from = start.toLocaleDateString('sv-SE');
     const to = end.toLocaleDateString('sv-SE');
 
-    const dateFrom = document.getElementById('dateFrom');
-    const dateTo = document.getElementById('dateTo');
-
-    if (dateFrom) dateFrom.value = from;
-    if (dateTo) dateTo.value = to;
+    document.getElementById('dateFrom').value = from;
+    document.getElementById('dateTo').value = to;
 
     saveDeviceFilter(device.id, {
         type: 'quick',
@@ -653,7 +648,7 @@ function aggregateByDate(rows, startVal, endVal, deviceConfig) {
     rows.forEach(r => {
         const d = parseDateSafe(r.date);
         if (!d) return;
-        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         if (!agg[key]) return;
         agg[key][normalizeType(r.type)]++;
     });
@@ -672,13 +667,11 @@ function populateDeviceDetail(rows) {
     if (!device) return;
 
     const tbody = document.getElementById('tableBody');
-    if (!tbody) return;
-
     tbody.innerHTML = '';
 
     const isDark = document.body.getAttribute('data-theme') === 'dark';
-    const gridColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
-    const textColor = isDark ? '#9ca3af' : '#6b7280';
+    const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)';
+    const textColor = isDark ? '#97a1af' : '#667085';
 
     let cM = 0;
     let cV = 0;
@@ -706,16 +699,10 @@ function populateDeviceDetail(rows) {
         litTotal += lit;
     });
 
-    const countMale = document.getElementById('countMale');
-    const countVelke = document.getElementById('countVelke');
-    const countTotal = document.getElementById('countTotal');
-    const totalLiters = document.getElementById('totalLiters');
-    const avgLiters = document.getElementById('avgLiters');
-
-    if (countMale) countMale.textContent = cM;
-    if (countVelke) countVelke.textContent = cV;
-    if (countTotal) countTotal.textContent = cM + cV;
-    if (totalLiters) totalLiters.textContent = litTotal.toFixed(0) + ' L';
+    document.getElementById('countMale').textContent = cM;
+    document.getElementById('countVelke').textContent = cV;
+    document.getElementById('countTotal').textContent = cM + cV;
+    document.getElementById('totalLiters').textContent = litTotal.toFixed(0) + ' L';
 
     const dateFrom = document.getElementById('dateFrom')?.value || '';
     const dateTo = document.getElementById('dateTo')?.value || '';
@@ -725,14 +712,12 @@ function populateDeviceDetail(rows) {
     const daysCount = agg.labels.length || 1;
     const avg = litTotal / daysCount;
 
-    if (avgLiters) avgLiters.textContent = avg.toFixed(1) + ' L';
+    document.getElementById('avgLiters').textContent = avg.toFixed(1) + ' L';
 
     const maxVal = Math.max(...dailyTotals, avg, 5);
     const chartMax = Math.ceil((maxVal * 1.2) / 5) * 5;
 
     const canvas = document.getElementById('chart');
-    if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
     if (chart) chart.destroy();
 
@@ -745,21 +730,19 @@ function populateDeviceDetail(rows) {
                     type: 'bar',
                     label: 'Malé',
                     data: agg.male,
-                    backgroundColor: '#2563eb',
-                    borderRadius: 3
+                    backgroundColor: '#2563eb'
                 },
                 {
                     type: 'bar',
                     label: 'Veľké',
                     data: agg.velke,
-                    backgroundColor: '#93c5fd',
-                    borderRadius: 3
+                    backgroundColor: '#93c5fd'
                 },
                 {
                     type: 'line',
                     label: 'Priemer',
                     data: [],
-                    borderColor: '#ef4444',
+                    borderColor: '#dc2626',
                     borderDash: [5, 5]
                 }
             ]
@@ -821,11 +804,8 @@ function showDeviceDetail(deviceId) {
 
     document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
 
-    const dateFrom = document.getElementById('dateFrom');
-    const dateTo = document.getElementById('dateTo');
-
-    if (dateFrom) dateFrom.value = savedFilter?.dateFrom || '';
-    if (dateTo) dateTo.value = savedFilter?.dateTo || '';
+    document.getElementById('dateFrom').value = savedFilter?.dateFrom || '';
+    document.getElementById('dateTo').value = savedFilter?.dateTo || '';
 
     if (savedFilter?.type === 'quick') {
         const btn = document.querySelector(`.btn-filter[data-days="${quickValue}"]`);
@@ -848,56 +828,39 @@ function showDeviceDetail(deviceId) {
 function showGlobalSettings() {
     setRootMenuActive('menu-settings-global');
     showSection('section-settings-global');
-
-    const globalQuickFilterInput = document.getElementById('globalQuickFilterInput');
-    const sheetIdDisplay = document.getElementById('sheetIdDisplay');
-
-    if (globalQuickFilterInput) globalQuickFilterInput.value = globalQuickFilter;
-    if (sheetIdDisplay) sheetIdDisplay.value = SHEET_ID;
+    document.getElementById('globalQuickFilterInput').value = globalQuickFilter;
+    document.getElementById('sheetIdDisplay').value = SHEET_ID;
 }
 
 function saveGlobalSettings() {
-    const globalQuickFilterInput = document.getElementById('globalQuickFilterInput');
-    globalQuickFilter = globalQuickFilterInput?.value || '7';
+    globalQuickFilter = document.getElementById('globalQuickFilterInput')?.value || '7';
     localStorage.setItem('globalQuickFilter', globalQuickFilter);
     showToast('Globálne nastavenia uložené ✅');
 }
 
 function fillDeviceSettingsForm(device) {
-    const deviceSettingsSubtitle = document.getElementById('deviceSettingsSubtitle');
-    const cfgName = document.getElementById('cfg-device-name');
-    const cfgBuilding = document.getElementById('cfg-device-building');
-    const cfgMale = document.getElementById('cfg-device-male');
-    const cfgVelke = document.getElementById('cfg-device-velke');
-    const cfgNote = document.getElementById('cfg-device-note');
-    const cfgBattery = document.getElementById('cfg-device-battery');
-    const cfgLastSeen = document.getElementById('cfg-device-lastseen');
-    const cfgRowCount = document.getElementById('cfg-device-rowcount');
+    if (!device) return;
 
-    if (deviceSettingsSubtitle) {
-        deviceSettingsSubtitle.textContent =
-            `Upravuješ zariadenie: ${device.name} (${device.id})`;
-    }
+    document.getElementById('cfg-device-name').value = device.name;
+    document.getElementById('cfg-device-building').value = device.building || '';
+    document.getElementById('cfg-device-male').value = device.objemMale;
+    document.getElementById('cfg-device-velke').value = device.objemVelke;
+    document.getElementById('cfg-device-note').value = device.note || '';
 
-    if (cfgName) cfgName.value = device.name;
-    if (cfgBuilding) cfgBuilding.value = device.building || '';
-    if (cfgMale) cfgMale.value = device.objemMale;
-    if (cfgVelke) cfgVelke.value = device.objemVelke;
-    if (cfgNote) cfgNote.value = device.note || '';
+    document.getElementById('cfg-device-battery').value =
+        device.latestBattery != null
+            ? `${Number(device.latestBattery).toFixed(2)} V${device.batteryPercent != null ? ` (${device.batteryPercent}%)` : ''}`
+            : '—';
 
-    if (cfgBattery) {
-        cfgBattery.value =
-            device.latestBattery != null
-                ? `${Number(device.latestBattery).toFixed(2)} V${device.batteryPercent != null ? ` (${device.batteryPercent}%)` : ''}`
-                : '—';
-    }
+    document.getElementById('cfg-device-lastseen').value =
+        device.lastSeenDate ? formatDateTimeSK(device.lastSeenDate, device.lastSeenTime) : '—';
 
-    if (cfgLastSeen) {
-        cfgLastSeen.value =
-            device.lastSeenDate ? formatDateTimeSK(device.lastSeenDate, device.lastSeenTime) : '—';
-    }
+    document.getElementById('cfg-device-rowcount').value = device.rows.length;
+}
 
-    if (cfgRowCount) cfgRowCount.value = device.rows.length;
+function fillCurrentDeviceSettingsForm() {
+    const device = getSelectedDevice();
+    fillDeviceSettingsForm(device);
 }
 
 function showDeviceSettings(deviceId = null) {
@@ -916,6 +879,7 @@ function showDeviceSettings(deviceId = null) {
 
     setRootMenuActive('menu-settings-device');
     showSection('section-settings-device');
+    populateDeviceSettingsSelect();
     fillDeviceSettingsForm(device);
 }
 
@@ -944,7 +908,9 @@ async function saveCurrentDeviceSettings() {
         });
 
         devices = buildDevices(allFetchedRows);
+        ensureSelectedDevice();
         renderDeviceSubmenu();
+        populateDeviceSettingsSelect();
         updateSubmenuActive(device.id);
         showToast('Nastavenia zariadenia uložené ✅');
         showDeviceDetail(device.id);
@@ -969,10 +935,8 @@ async function updateAll() {
     if (container) container.classList.add('loading');
 
     try {
-        /* 1. načítaj nastavenia zariadení z Devices */
         await loadDeviceSettingsFromSheet();
 
-        /* 2. načítaj logy */
         const resp = await fetch(SHEET_GVIZ_URL);
         if (!resp.ok) {
             throw new Error(`Nepodarilo sa načítať logy. HTTP ${resp.status}`);
@@ -980,18 +944,21 @@ async function updateAll() {
 
         const gv = parseGViz(await resp.text());
 
-        allFetchedRows = (gv.table.rows || []).map(r => ({
-            date: r.c[0]?.v || null,
-            time: r.c[1]?.v || '',
-            type: r.c[2]?.v || '',
-            deviceId: String(r.c[3]?.v || 'nezname-zariadenie'),
-            battery: r.c[4]?.v != null && r.c[4]?.v !== '' ? parseFloat(r.c[4]?.v) : null
-        }));
+        allFetchedRows = (gv.table.rows || [])
+            .map(r => ({
+                date: r.c[0]?.v || null,
+                time: r.c[1]?.v || '',
+                type: r.c[2]?.v || '',
+                deviceId: String(r.c[3]?.v || '').trim(),
+                battery: r.c[4]?.v != null && r.c[4]?.v !== '' ? parseFloat(r.c[4]?.v) : null
+            }))
+            .filter(row => row.deviceId);
 
         allFetchedRows.sort(compareRows);
         devices = buildDevices(allFetchedRows);
         ensureSelectedDevice();
         renderDeviceSubmenu();
+        populateDeviceSettingsSelect();
 
         if (document.getElementById('section-settings-global')?.classList.contains('active')) {
             showGlobalSettings();
