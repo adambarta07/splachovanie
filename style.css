@@ -3,7 +3,7 @@
     --color-blue-hover: #1d4ed8;
 
     --color-text-dark: #111827;
-    --color-text-light: #8f95a0;
+    --color-text-light: #97a1af;
 
     --color-bg: #f5f7fb;
     --color-card: #ffffff;
@@ -334,7 +334,7 @@ body.collapsed .main-content {
     margin-top: 0;
     margin-bottom: 6px;
     font-size: 1.55rem;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: -0.02em;
 }
 
