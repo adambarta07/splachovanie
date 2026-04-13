@@ -1,7 +1,7 @@
 const SHEET_ID = "10SkH1lLlO-pF1v_WwDpeD_XJLNLAoFEglbJS7TIZY5A";
 const SHEET_GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
 
-const SETTINGS_API_URL = "https://script.google.com/macros/s/AKfycbxSWa-6TrdmombKg4nRUtYncO5gh55eS_TUDVW_0ncRwmXq18iPcKfCEAuoNXWLxtai/exec";
+const SETTINGS_API_URL = "https://script.google.com/macros/s/AKfycby_bMVJtbv9SqbZETuUeP-0JpqagrpwfD8BHFk20k-346yePXBcgszWC-NktQEmMQjF/exec";
 
 let currentTheme = localStorage.getItem('theme') || 'light';
 let isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
@@ -662,6 +662,12 @@ function aggregateByDate(rows, startVal, endVal, deviceConfig) {
     };
 }
 
+function getDayShort(dateStr) {
+    const d = new Date(dateStr);
+    const days = ["Ne", "Po", "Ut", "St", "Št", "Pi", "So"];
+    return days[d.getDay()];
+}
+
 function populateDeviceDetail(rows) {
     const device = getSelectedDevice();
     if (!device) return;
@@ -724,7 +730,14 @@ function populateDeviceDetail(rows) {
     chart = new Chart(ctx, {
         plugins: [edgeLinePlugin],
         data: {
-            labels: agg.labels.map(l => l.split('-').slice(1).reverse().join('.')),
+            labels: agg.labels.map(l => {
+                const d = new Date(l);
+                const day = d.getDate();
+                const month = d.getMonth() + 1;
+                const dayShort = getDayShort(l);
+
+                return [`${day}.${month}.`, dayShort];
+            }),
             datasets: [
                 {
                     type: 'bar',
